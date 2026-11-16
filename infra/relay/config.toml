@@ -1,0 +1,21 @@
+# nostr-rs-relay 0.10.0. Only the settings the trust contract depends on are set;
+# everything else is the relay's default.
+[info]
+relay_url = "ws://localhost:7777/"
+name = "tab-regtest"
+description = "Local relay for the Tab demo. Regtest only."
+
+[network]
+address = "0.0.0.0"
+port = 7777
+
+[options]
+reject_future_seconds = 1800
+
+[limits]
+max_event_bytes = 131072
+
+[authorization]
+# NIP-42: offer AUTH, and serve kind 1059 only to the authenticated p-tagged key.
+nip42_auth = true
+nip42_dms = true
