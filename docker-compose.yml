@@ -1,0 +1,147 @@
+# Regtest only. Everything a judge needs, started by: docker compose up --build
+#
+#   bitcoind ── lnd-merchant ── hub-merchant ─┐
+#            └─ lnd-customer ── hub-customer ─┼─ relay ── web (the app, :8080)
+#                                    init ────┘
+#
+# `init` funds a channel, sets up both wallets, mints the two NWC connections
+# and writes ./.stack/demo.json, then exits. `web` then builds and serves the app.
+# All published ports bind to 127.0.0.1: nothing here is meant for a network.
+
+x-lnd: &lnd
+  image: lightninglabs/lnd:v0.21.8-beta@sha256:f17b2944b1b76396cccbe58feac469b6cefb5f407557ac77f0880f136fb935f9
+  depends_on:
+    bitcoind: { condition: service_healthy }
+  healthcheck:
+    test: ["CMD", "lncli", "--lnddir=/data", "--network=regtest", "getinfo"]
+    interval: 3s
+    retries: 40
+
+x-hub: &hub
+  image: ghcr.io/getalby/hub:v1.24.7@sha256:7e3de6dac330fb8a426c02a247d81ebaf07deece22634e97d8f20dd48c3a8e38
+  restart: on-failure
+
+x-hub-env: &hub-env
+  WORK_DIR: /data
+  PORT: "8080"
+  RELAY: ws://relay:7777
+  LN_BACKEND_TYPE: LND
+  LND_CERT_FILE: /lnd/tls.cert
+  LND_MACAROON_FILE: /lnd/data/chain/bitcoin/regtest/admin.macaroon
+  # Keep the wallet from contacting Alby's servers: this is an offline demo.
+  SEND_EVENTS_TO_ALBY: "false"
+  AUTO_LINK_ALBY_ACCOUNT: "false"
+  HIDE_UPDATE_BANNER: "true"
+
+services:
+  bitcoind:
+    image: bitcoin/bitcoin:32.1@sha256:d2454aaf2ff4ce1ebbc49f4aa05ed044c907b849a80a3f4c0ad23e488e50bbe0
+    command:
+      - -regtest
+      - -server
+      - -printtoconsole
+      - -fallbackfee=0.0002
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -rpcuser=tab
+      - -rpcpassword=tab
+      - -zmqpubrawblock=tcp://0.0.0.0:28332
+      - -zmqpubrawtx=tcp://0.0.0.0:28333
+    healthcheck:
+      test: ["CMD", "bitcoin-cli", "-regtest", "-rpcuser=tab", "-rpcpassword=tab", "getblockchaininfo"]
+      interval: 3s
+      retries: 40
+
+  lnd-merchant:
+    <<: *lnd
+    command: &lnd-args
+      - --lnddir=/data
+      - --noseedbackup
+      - --bitcoin.regtest
+      - --bitcoin.node=bitcoind
+      - --bitcoind.rpchost=bitcoind:18443
+      - --bitcoind.rpcuser=tab
+      - --bitcoind.rpcpass=tab
+      - --bitcoind.zmqpubrawblock=tcp://bitcoind:28332
+      - --bitcoind.zmqpubrawtx=tcp://bitcoind:28333
+      - --rpclisten=0.0.0.0:10009
+      - --restlisten=0.0.0.0:8080
+      - --listen=0.0.0.0:9735
+      - --tlsextradomain=lnd-merchant
+      - --tlsextradomain=lnd-customer
+    volumes: ["lnd-merchant:/data"]
+    ports: ["127.0.0.1:8081:8080"]
+
+  lnd-customer:
+    <<: *lnd
+    command: *lnd-args
+    volumes: ["lnd-customer:/data"]
+    ports: ["127.0.0.1:8082:8080"]
+
+  relay:
+    image: scsibug/nostr-rs-relay:0.10.0@sha256:48d54c2d2781577cf3ed2951112f0953dc2c5e7c9d2ea20c64e8c0fa37d16e4d
+    volumes:
+      - ./infra/relay/config.toml:/usr/src/app/config.toml:ro
+      - relay-db:/usr/src/app/db
+    ports: ["127.0.0.1:7777:7777"]
+
+  hub-merchant:
+    <<: *hub
+    depends_on:
+      lnd-merchant: { condition: service_healthy }
+      relay: { condition: service_started }
+    environment:
+      <<: *hub-env
+      LND_ADDRESS: lnd-merchant:10009
+    volumes: ["hub-merchant:/data", "lnd-merchant:/lnd:ro"]
+    ports: ["127.0.0.1:8091:8080"]
+
+  hub-customer:
+    <<: *hub
+    depends_on:
+      lnd-customer: { condition: service_healthy }
+      relay: { condition: service_started }
+    environment:
+      <<: *hub-env
+      LND_ADDRESS: lnd-customer:10009
+    volumes: ["hub-customer:/data", "lnd-customer:/lnd:ro"]
+    ports: ["127.0.0.1:8092:8080"]
+
+  init:
+    build: .
+    command: ["node", "infra/init.mjs"]
+    depends_on:
+      lnd-merchant: { condition: service_healthy }
+      lnd-customer: { condition: service_healthy }
+      hub-merchant: { condition: service_started }
+      hub-customer: { condition: service_started }
+    environment:
+      BITCOIND_URL: http://bitcoind:18443
+      LND_MERCHANT_REST: https://lnd-merchant:8080
+      LND_MERCHANT_MACAROON: /lnd-merchant/data/chain/bitcoin/regtest/admin.macaroon
+      LND_MERCHANT_P2P: lnd-merchant:9735
+      LND_CUSTOMER_REST: https://lnd-customer:8080
+      LND_CUSTOMER_MACAROON: /lnd-customer/data/chain/bitcoin/regtest/admin.macaroon
+      HUB_MERCHANT_URL: http://hub-merchant:8080
+      HUB_CUSTOMER_URL: http://hub-customer:8080
+      PUBLIC_RELAY_URL: ws://localhost:7777
+      OUT: /shared/demo.json
+    volumes:
+      - lnd-merchant:/lnd-merchant:ro
+      - lnd-customer:/lnd-customer:ro
+      - ./.stack:/shared
+
+  web:
+    build: .
+    command: ["sh", "-c", "pnpm run build && cp /shared/demo.json dist/demo.json && pnpm run preview"]
+    depends_on:
+      init: { condition: service_completed_successfully }
+    volumes: ["./.stack:/shared:ro"]
+    ports: ["127.0.0.1:8080:8080"]
+
+volumes:
+  lnd-merchant:
+  lnd-customer:
+  hub-merchant:
+  hub-customer:
+  relay-db:
