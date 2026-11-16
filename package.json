@@ -1,0 +1,32 @@
+{
+    "name": "tab",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "engines": {
+      "node": ">=24"
+    },
+    "scripts": {
+      "dev": "vite",
+      "build": "tsc && vite build",
+      "preview": "vite preview --host 0.0.0.0 --port 8080",
+      "test": "vitest run test/unit",
+      "test:it": "vitest run test/it",
+      "test:e2e": "playwright test --trace off",
+      "check": "tsc"
+    },
+    "dependencies": {
+      "@noble/hashes": "2.0.1",
+      "@scure/base": "2.0.0",
+      "nostr-tools": "2.26.0"
+    },
+    "devDependencies": {
+      "@playwright/test": "1.65.1",
+      "@types/node": "26.6.6",
+      "fast-check": "4.10.2",
+      "typescript": "7.0.2",
+      "undici": "8.12.4",
+      "vite": "8.3.8",
+      "vitest": "5.1.0"
+    }
+  }
