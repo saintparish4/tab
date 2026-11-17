@@ -171,7 +171,8 @@ export class Client {
     try {
       await this.wallet.info() // refuses wallets that cannot do NIP-44
       const reply = await this.wallet.call('get_info')
-      if (!reply.ok || !Array.isArray(reply.result.methods)) throw new Error('wallet refused get_info')
+      if (!reply.ok || !Array.isArray(reply.result.methods))
+        throw new Error('The wallet did not say what this connection may do. Payments are off.')
       this.dispatch({ type: 'proof', requestId, methods: reply.result.methods.map(String), at: nowSec() })
       void this.refreshBudget()
     } catch (e) {
@@ -213,7 +214,7 @@ export class Client {
     const description = binding(this.me, this.o.peer, ref)
     try {
       const reply = await this.wallet.call('make_invoice', { amount: sats * 1000, description, expiry: 600 })
-      if (!reply.ok) return this.say(`Wallet refused: ${reply.error.code}`)
+      if (!reply.ok) return this.say(`The wallet could not create the request (${reply.error.code}).`)
       const bolt11 = String(reply.result.invoice ?? '')
       // Do not relay an invoice we did not ask for.
       const inv = decodeInvoice(bolt11)
@@ -243,7 +244,7 @@ export class Client {
         this.notice =
           reply.error.code === 'QUOTA_EXCEEDED'
             ? "Over this connection's spending limit."
-            : `Payment failed: ${reply.error.code}`
+            : `The wallet did not pay (${reply.error.code}).`
         void this.refreshBudget()
       } else this.acceptPreimage(requestId, paymentHash, reply.result.preimage)
     } catch (e) {

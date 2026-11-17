@@ -2,8 +2,17 @@
 :root {
   color-scheme: light dark;
   --accent: #0a7d4b;
+  /* Text colours are set apart from the button colour: the green that carries
+     white button text is too dark to read as text on a dark background. */
+  --accent-text: #0a7d4b;
   --warn: #b3261e;
   --line: #8884;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-text: #5fd39b;
+    --warn: #ff8a80;
+  }
 }
 * {
   box-sizing: border-box;
@@ -110,7 +119,7 @@ header {
 }
 .pay.paid,
 .pay.settled {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .warn,
 .error {

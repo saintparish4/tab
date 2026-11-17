@@ -52,12 +52,25 @@ const field = (id: string) => document.getElementById(id) as HTMLInputElement
 const show = (...kids: Node[]) => root.replaceChildren(...kids)
 const short = (pk: string) => nip19.npubEncode(pk).slice(0, 12) + '…'
 
+function validConn(uri: string): boolean {
+  try {
+    parseConn(uri)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function toHexKey(text: string): string {
   const t = text.trim()
   if (isHex64(t)) return t
-  const d = nip19.decode(t) as { type: string; data: unknown }
-  if (d.type !== 'npub') throw new Error('Enter the other person’s npub.')
-  return d.data as string
+  try {
+    const d = nip19.decode(t) as { type: string; data: unknown }
+    if (d.type === 'npub') return d.data as string
+  } catch {
+    // not a valid address at all: same message as a valid code of the wrong kind
+  }
+  throw new Error('Enter the other person’s address. It starts with npub1.')
 }
 
 // ---- set up -----------------------------------------------------------------
@@ -82,7 +95,9 @@ async function setupScreen(): Promise<void> {
           const pin = field('pin').value
           if (pin.length < 6) throw new Error('Choose a PIN of at least 6 characters.')
           const uri = field('nwc').value.trim()
-          if (uri) parseConn(uri) // refuse a bad string now, not at first payment
+          // refuse a bad link now, not at first payment
+          if (uri && !validConn(uri))
+            throw new Error('That is not a wallet connection link. It starts with nostr+walletconnect://')
           const secrets: Secrets = { sk, nwc: uri || null, peer: toHexKey(field('peer').value) }
           localStorage.setItem(VAULT_KEY, JSON.stringify(await seal(secrets, pin)))
           start(secrets)
@@ -95,14 +110,14 @@ async function setupScreen(): Promise<void> {
     el('p', {}, 'Chat with one person and settle up in the same thread.'),
     el('label', { for: 'me' }, 'Your address (share it with them)'),
     el('input', { id: 'me', readonly: true, value: nip19.npubEncode(getPublicKey(hexToBytes(sk))) }),
-    el('label', { for: 'peer' }, 'Their address (npub)'),
+    el('label', { for: 'peer' }, 'Their address (starts with npub1)'),
     el('input', { id: 'peer', required: true, autocomplete: 'off', value: peer }),
-    el('label', { for: 'nwc' }, 'Wallet connection (optional, nostr+walletconnect://…)'),
+    el('label', { for: 'nwc' }, 'Wallet connection link (optional)'),
     el('input', { id: 'nwc', type: 'password', autocomplete: 'off', value: nwc }),
     el(
       'p',
       { class: 'hint' },
-      'Selling: give this app a receive-only connection. Buying: a connection with a small spending limit.',
+      'Create it in your wallet under app connections and paste the link. Selling: allow receiving only. Buying: set a small spending limit.',
     ),
     el('label', { for: 'pin' }, 'PIN to lock this device'),
     el('input', { id: 'pin', type: 'password', inputmode: 'numeric', required: true, autocomplete: 'new-password' }),
@@ -290,10 +305,10 @@ function draw(): void {
               : '')
           : c.role.canRequest
             ? 'wallet: can request'
-            : 'wallet: no useful permission'
+            : 'wallet: cannot pay or request'
         : `wallet ${s.wallet.w}`
   document.getElementById('status')!.textContent =
-    `${c.relayStatus === 'open' ? 'online' : c.relayStatus === 'refused' ? 'relay refused login' : 'offline, will retry'} · ${wallet}`
+    `${c.relayStatus === 'open' ? 'online' : c.relayStatus === 'refused' ? 'server refused sign-in' : 'offline, will retry'} · ${wallet}`
   document.getElementById('notice')!.textContent = c.notice
   ;(document.getElementById('request') as HTMLFormElement).hidden = !c.role.canRequest
   const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40
