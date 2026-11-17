@@ -48,6 +48,10 @@ export class Client {
   /** payment hashes whose pay_invoice timed out: outcome unknown */
   readonly unknown = new Set<string>()
   readonly paying = new Set<string>()
+  /** payer-side payment hashes our wallet has been asked about since unlock */
+  private asked = new Set<string>()
+  private confirming: Promise<void> | null = null
+  private confirmAgain = false
   /** what the wallet last said about this connection's spending limit; display only */
   budget: Budget | null = null
   private rumors = new Map<string, Rumor>()
@@ -175,6 +179,9 @@ export class Client {
         throw new Error('The wallet did not say what this connection may do. Payments are off.')
       this.dispatch({ type: 'proof', requestId, methods: reply.result.methods.map(String), at: nowSec() })
       void this.refreshBudget()
+      // Do not wait for the next poll: after an unlock this is what restores a
+      // payment whose receipt was lost.
+      void this.confirmSettlements()
     } catch (e) {
       this.dispatch({ type: 'checkFailed', requestId })
       this.notice =
@@ -272,20 +279,62 @@ export class Client {
    * Ask our own wallet about invoices still open on either side:
    *  payee: has my invoice settled?        -> `settled`
    *  payer: did a timed-out payment land?  -> preimage, or stays unknown
+   *  payer: did I already pay this?        -> asked once per request after
+   *         unlock. "Paid" is held in memory and rebuilt from our own receipt
+   *         on the relay; a lock or reload before the relay acknowledged that
+   *         receipt loses it, and only the wallet still knows.
    */
-  async confirmSettlements(): Promise<void> {
+  confirmSettlements(): Promise<void> {
+    // One pass at a time. Every arriving message asks for a check, and after
+    // an unlock a whole conversation arrives at once: without this, each of
+    // those would ask the wallet about every open invoice in parallel.
+    if (this.confirming) {
+      this.confirmAgain = true
+      return this.confirming
+    }
+    this.confirming = (async () => {
+      try {
+        do {
+          this.confirmAgain = false
+          await this.confirmOnce()
+        } while (this.confirmAgain)
+      } finally {
+        this.confirming = null
+      }
+    })()
+    return this.confirming
+  }
+
+  private async confirmOnce(): Promise<void> {
     if (!this.wallet || this.relayStatus !== 'open' || !can(this.session, 'lookup_invoice', nowSec())) return
     for (const item of this.thread()) {
       const p = item.pay
       if (!p) continue
       const open =
         (p.role === 'payee' && (p.state === 'awaiting' || p.state === 'proof')) ||
-        (p.role === 'payer' && this.unknown.has(p.paymentHash))
+        (p.role === 'payer' && this.unknown.has(p.paymentHash)) ||
+        (p.role === 'payer' &&
+          (p.state === 'payable' || p.state === 'expired') &&
+          !this.asked.has(p.paymentHash) &&
+          !this.paying.has(p.paymentHash))
       if (!open) continue
+      const recheck = p.role === 'payer' && !this.unknown.has(p.paymentHash)
+      // Marked before the call, so a second pass running at the same time does
+      // not ask again and send a second receipt. No answer un-marks it below.
+      if (recheck) this.asked.add(p.paymentHash)
       try {
         const reply = await this.wallet.call('lookup_invoice', { payment_hash: p.paymentHash }, 8000)
         if (!reply.ok || reply.result.payment_hash !== p.paymentHash) continue
         const done = reply.result.state === 'settled' || typeof reply.result.settled_at === 'number'
+        if (recheck && !done) {
+          // Never paid, or failed: stays payable, with nothing to tell the user.
+          // Still in flight from before the lock: unknown, so it is not paid twice.
+          if (reply.result.state === 'pending') {
+            this.unknown.add(p.paymentHash)
+            this.changed()
+          }
+          continue
+        }
         if (p.role === 'payee' && done && reply.result.type === 'incoming') {
           this.settled.add(p.paymentHash)
           this.changed()
@@ -297,7 +346,8 @@ export class Client {
           this.say('The payment did not go through. Nothing was sent.')
         }
       } catch {
-        // wallet unreachable: leave the state exactly as it was
+        // wallet unreachable: leave the state exactly as it was, and ask again later
+        if (recheck) this.asked.delete(p.paymentHash)
       }
     }
   }
@@ -313,6 +363,7 @@ export class Client {
     this.outbox.clear()
     this.preimages.clear()
     this.settled.clear()
+    this.asked.clear()
     this.budget = null
   }
 }

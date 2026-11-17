@@ -37,6 +37,8 @@ const fake = vi.hoisted(() => {
     /** hands a relay event to the client, as the relay would */
     deliver: (_: Event) => {},
     published: [] as Event[],
+    /** false: the relay never acknowledges a publish, as on a link that just died */
+    acks: true,
   }
 })
 
@@ -50,6 +52,7 @@ vi.mock('../../src/net/relay.ts', () => ({
       return () => {}
     }
     publish(ev: Event) {
+      if (!fake.acks) return new Promise<void>(() => {})
       fake.published.push(ev)
       return Promise.resolve()
     }
@@ -97,6 +100,7 @@ async function customerWithRequest(methods = ['pay_invoice', 'lookup_invoice'], 
   fake.handlers = { get_info: () => ok({ methods }), ...more }
   fake.calls.length = 0
   fake.published.length = 0
+  fake.acks = true
   client = new Client({ sk: customer, peer: M, relayUrl: 'ws://unused', network: 'bcrt', conn })
   await waitFor(() => expect(client.role.canPay).toBe(true))
 
@@ -105,9 +109,18 @@ async function customerWithRequest(methods = ['pay_invoice', 'lookup_invoice'], 
   const paymentHash = bytesToHex(sha256(hexToBytes(preimage)))
   const bolt11 = fakeInvoice({ paymentHash, description: binding(M, C, 'ref1'), timestamp: now })
   const request = makeRumor(merchant, 14, requestTags(C, bolt11, 'ref1'), 'Please pay 2500 sats', now)
-  fake.deliver(wrap(request, merchant, C, now))
+  const requestWrap = wrap(request, merchant, C, now)
+  fake.deliver(requestWrap)
   expect(stateOf(request.id)).toBe('payable')
-  return { id: request.id, preimage, paymentHash }
+  return { id: request.id, preimage, paymentHash, requestWrap }
+}
+/** Lock, then unlock: a new Client that gets back only what the relay stored. */
+async function lockAndUnlock(stored: Event[]) {
+  client.close()
+  fake.acks = true
+  client = new Client({ sk: customer, peer: M, relayUrl: 'ws://unused', network: 'bcrt', conn })
+  await waitFor(() => expect(client.role.canPay).toBe(true))
+  for (const ev of stored) fake.deliver(ev)
 }
 const stateOf = (id: string) => client.thread().find((i) => i.id === id)?.pay?.state
 /** receipts this client sent to the merchant, read the way the merchant would */
@@ -202,6 +215,84 @@ describe('a pay_invoice the wallet never answers', () => {
     fake.handlers.pay_invoice = () => ok({ preimage: o.preimage })
     await client.pay(o.id)
     expect(count('pay_invoice')).toBe(2)
+    expect(stateOf(o.id)).toBe('paid')
+  })
+})
+
+describe('a payment whose receipt never reached the relay', () => {
+  // Paid state is held in memory and rebuilt after unlock from the buyer's own
+  // receipt, which comes back from the relay. If the buyer locks (or the page
+  // reloads) before the relay has acknowledged that receipt, it is gone.
+  const paidThenLockedTooSoon = async () => {
+    const o = await customerWithRequest()
+    fake.handlers.pay_invoice = () => ok({ preimage: o.preimage })
+    fake.acks = false
+    await client.pay(o.id)
+    expect(stateOf(o.id)).toBe('paid')
+    await lockAndUnlock([o.requestWrap])
+    return o
+  }
+
+  test('is found again by asking the wallet, and the receipt is sent', async () => {
+    const o = await paidThenLockedTooSoon()
+    fake.handlers.lookup_invoice = (p) =>
+      ok({ payment_hash: p.payment_hash, state: 'settled', type: 'outgoing', preimage: o.preimage })
+    await client.confirmSettlements()
+
+    expect(stateOf(o.id)).toBe('paid')
+    expect(count('pay_invoice')).toBe(1)
+    const receipts = receiptsSent()
+    expect(receipts).toHaveLength(1)
+    expect(tagValue(receipts[0], 'preimage')).toBe(o.preimage)
+  })
+
+  test('two checks running at once ask the wallet once and send one receipt', async () => {
+    const o = await paidThenLockedTooSoon()
+    fake.handlers.lookup_invoice = (p) =>
+      ok({ payment_hash: p.payment_hash, state: 'settled', type: 'outgoing', preimage: o.preimage })
+    fake.calls.length = 0
+    await Promise.all([client.confirmSettlements(), client.confirmSettlements(), client.confirmSettlements()])
+    expect(count('lookup_invoice')).toBe(1)
+    expect(receiptsSent()).toHaveLength(1)
+  })
+
+  test('still needs a preimage that hashes to the invoice', async () => {
+    const o = await paidThenLockedTooSoon()
+    fake.handlers.lookup_invoice = (p) =>
+      ok({ payment_hash: p.payment_hash, state: 'settled', type: 'outgoing', preimage: '00'.repeat(32) })
+    await client.confirmSettlements()
+    expect(stateOf(o.id)).toBe('payable')
+    expect(receiptsSent()).toEqual([])
+  })
+
+  test('a payment still in flight after unlock is unknown, and is not sent again', async () => {
+    const o = await paidThenLockedTooSoon()
+    fake.handlers.lookup_invoice = (p) => ok({ payment_hash: p.payment_hash, state: 'pending', type: 'outgoing' })
+    await client.confirmSettlements()
+    expect(client.unknown.has(o.paymentHash)).toBe(true)
+    await client.pay(o.id)
+    expect(count('pay_invoice')).toBe(1)
+  })
+
+  test('a request the wallet never paid is asked about once, and stays payable without a notice', async () => {
+    const o = await customerWithRequest()
+    fake.handlers.lookup_invoice = () => ({ ok: false, error: { code: 'NOT_FOUND', message: '' } })
+    fake.calls.length = 0 // the request's arrival already tried once, with no answer
+    await client.confirmSettlements()
+    await client.confirmSettlements()
+    await client.confirmSettlements()
+    expect(count('lookup_invoice')).toBe(1)
+    expect(stateOf(o.id)).toBe('payable')
+    expect(client.notice).toBe('')
+  })
+
+  test('is asked about again while the wallet does not answer', async () => {
+    const o = await paidThenLockedTooSoon()
+    await client.confirmSettlements() // lookup_invoice times out
+    expect(stateOf(o.id)).toBe('payable')
+    fake.handlers.lookup_invoice = (p) =>
+      ok({ payment_hash: p.payment_hash, state: 'settled', type: 'outgoing', preimage: o.preimage })
+    await client.confirmSettlements()
     expect(stateOf(o.id)).toBe('paid')
   })
 })

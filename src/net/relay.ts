@@ -68,12 +68,22 @@ export class Relay {
     if (this.ws !== ws) return
     this.ws = null
     ws.onclose = ws.onerror = ws.onmessage = null
-    ws.close()
+    Relay.shut(ws)
     if (this.stopped) return
     this.opts.onStatus?.('closed')
     // 1s, 2s, 4s ... capped at 15s: quick on a blip, gentle on a dead link.
     const wait = Math.min(15000, 1000 * 2 ** this.retry++)
     setTimeout(() => this.connect(), wait)
+  }
+
+  /**
+   * Close without noise. A browser logs a console error when a socket is
+   * closed while still connecting, and this app logs nothing; such a socket is
+   * left to close itself the moment it opens.
+   */
+  private static shut(ws: WebSocket): void {
+    if (ws.readyState === WebSocket.CONNECTING) ws.onopen = () => ws.close()
+    else ws.close()
   }
 
   private heartbeat(): void {
@@ -151,7 +161,9 @@ export class Relay {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(ev.id)
-        if (this.ws) this.drop(this.ws) // no OK: assume the link is dead
+        // No OK on an open socket: assume the link is dead. A socket that is
+        // still connecting sent nothing, and is already the retry.
+        if (this.ws?.readyState === WebSocket.OPEN) this.drop(this.ws)
         reject(new Error('relay did not acknowledge in time'))
       }, timeoutMs)
       this.pending.set(ev.id, { resolve, reject, timer })
@@ -167,6 +179,9 @@ export class Relay {
     this.stopped = true
     clearInterval(this.beat)
     for (const p of this.pending.values()) clearTimeout(p.timer)
-    this.ws?.close()
+    if (this.ws) {
+      this.ws.onclose = this.ws.onerror = this.ws.onmessage = null
+      Relay.shut(this.ws)
+    }
   }
 }

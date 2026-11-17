@@ -221,7 +221,7 @@ pnpm verify                 # format check, type check and unit tests in one go
 pnpm verify:all             # the same, then the integration and browser tests
 ```
 
-As of 2026-11-17: 94 unit tests, 18 integration tests and 2 browser tests
+As of 2026-11-17: 100 unit tests, 18 integration tests and 2 browser tests
 pass. There is no CI; these are local runs.
 
 A pre-commit hook runs `pnpm verify`. Turn it on once per clone:
