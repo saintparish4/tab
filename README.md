@@ -29,17 +29,31 @@ Lightning, such as a food stall, a kiosk or a tailor, in Dakar and across Africa
 **One daily workflow:** an order arrives as a message, the seller states a
 price, the buyer pays, the seller confirms and hands over the goods.
 
-**Reach (merchants served per week): not yet estimated.** We have not tested
-this with a seller, and we would rather show no number than one we cannot back
-up. How we will estimate it:
+**Reach: at most 5 merchants in Dakar today, and none served yet.** We have
+not tested this with a seller, so merchants served per week is zero. What we
+can count is who could use Tab today:
 
-1. Count merchants that already accept Lightning in Dakar on
-   [BTC Map](https://btcmap.org/), which anyone can check. That bounds who
-   could use Tab today.
-2. Ask five of them how orders arrive now. If most say "in person", this
+- [BTC Map](https://btcmap.org/) lists **5 merchants** inside its Dakar area
+  on 2026-11-17: two restaurants, a bar, a gaming shop and a surf camp.
+- **3 of the 5** are tagged as accepting Lightning; the other two only say
+  they accept bitcoin.
+- All five were last verified in 2022 or 2023, so some may have stopped.
+
+That is an upper bound on today's users, not a forecast. Tab only becomes
+useful to more sellers as more of them accept Lightning. Anyone can repeat the
+count:
+
+```bash
+curl -s 'https://api.btcmap.org/v4/places/search?lat=14.72&lon=-17.35&radius_km=60'
+# then keep the places inside the polygon from https://api.btcmap.org/v2/areas/dakar
+```
+
+What is still to do before we claim more:
+
+1. Ask those merchants how orders arrive now. If most say "in person", this
    workflow is not theirs, and we will say so.
-3. Run one scripted session with a seller: completion, time per task, and
-   where they got stuck.
+2. Run one scripted session with a seller ([`docs/user-test.md`](docs/user-test.md)):
+   completion, time per task, and where they got stuck.
 
 ## How it works
 
@@ -87,13 +101,13 @@ What the other person _can_ check is each payment:
 
 The hackathon's five judging criteria, and how Tab meets each.
 
-| Criterion                     | What we aim for                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Usefulness & local impact** | One primary user (a seller who takes orders by message), one daily workflow (order, request, pay, confirm), and a reach estimate built on a public count, not a guess                                                                                                                                                                                                                                                                             |
-| **Security by design**        | Threat model and trust boundaries written down. Least privilege: the seller's wallet connection cannot spend, and the buyer's has a budget, both enforced by the wallet. Secrets PIN-encrypted on the device and never sent to a server. Every relay event validated before use. No logging at all in the app. Proven libraries for the cryptography (`nostr-tools`, `@noble`); our own code only where a library helper was unsafe for this use. |
-| **UX/UI quality**             | One small page with no framework, web fonts or images, so it loads on a slow link and a mid-range phone. Large touch targets and system colours. Plain labels ("Paid ✓ confirmed by your wallet", "Waiting for payment"), and a timed-out payment shown as "unknown", never as "failed".                                                                                                                                                          |
-| **Working MVP**               | One command (`docker compose up`, or `infra/native.sh up` without Docker). Seed data: a funded regtest channel and two ready-made wallet connections. A happy path anyone can run, and tests against the real wallet and Lightning nodes, not mockups.                                                                                                                                                                                            |
-| **Clear pitch & docs**        | A 3-minute demo (problem, solution, impact, next steps), and this README: setup, architecture diagram, constraints, metrics and the next iteration.                                                                                                                                                                                                                                                                                               |
+| Criterion                     | What we aim for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Usefulness & local impact** | One primary user (a seller who takes orders by message), one daily workflow (order, request, pay, confirm), and a reach bound built on a public count (5 merchants in Dakar on BTC Map), not a guess                                                                                                                                                                                                                                                                                                |
+| **Security by design**        | Threat model and trust boundaries written down in [`docs/threat-model.md`](docs/threat-model.md). Least privilege: the seller's wallet connection cannot spend, and the buyer's has a budget, both enforced by the wallet. Secrets PIN-encrypted on the device and never sent to a server. Every relay event validated before use. No logging at all in the app. Proven libraries for the cryptography (`nostr-tools`, `@noble`); our own code only where a library helper was unsafe for this use. |
+| **UX/UI quality**             | One small page with no framework, web fonts or images, so it loads on a slow link and a mid-range phone. Large touch targets (48 px), 16 px text, and text contrast above the WCAG minimum in light and dark mode. Plain labels ("Paid ✓ confirmed by your wallet", "Waiting for payment"), and a timed-out payment shown as "unknown", never as "failed".                                                                                                                                          |
+| **Working MVP**               | One command (`docker compose up`, or `infra/native.sh up` without Docker). Seed data: a funded regtest channel and two ready-made wallet connections. A happy path anyone can run, and tests against the real wallet and Lightning nodes, not mockups.                                                                                                                                                                                                                                              |
+| **Clear pitch & docs**        | A 3-minute demo (problem, solution, impact, next steps), and this README: setup, architecture diagram, constraints, metrics and the next iteration.                                                                                                                                                                                                                                                                                                                                                 |
 
 The submission asks for a brief presentation, a prototype, and at least one
 Bitcoin or Lightning wallet implementation. Ours is Nostr Wallet Connect,
@@ -276,6 +290,7 @@ the wallet enforces.
 | `infra/relay/config.toml`          | relay settings that the privacy claims depend on                                          |
 | `e2e/`                             | the page on two emulated phones (Playwright)                                              |
 | `scripts/`                         | fixture capture, log and relay-disk scans, `demo:fresh`                                   |
+| `docs/`                            | the threat model, the demo script and the scripted task for a seller                      |
 | `docker-compose.yml`, `Dockerfile` | the one-command stack                                                                     |
 
 ## The two secrets
@@ -306,17 +321,41 @@ Erasing the app does not revoke the wallet connection. Delete it in the wallet.
 - **The app does not verify invoice signatures.** The paying Lightning node
   does, but the app cannot show which node gets paid.
 - **One relay is a single point of failure** and can censor.
+- **Tested with one wallet, on regtest only:** Alby Hub 1.24.7 on LND 0.21.8,
+  with nostr-rs-relay 0.10.0. Other wallets may refuse or report differently.
+- **The page must be served from `localhost` or over HTTPS.** Browsers only
+  expose WebCrypto there, and the vault needs it.
+- **The relay's `relay_url` must be the address browsers connect to**
+  (`infra/relay/config.toml`), or it rejects the sign-in for private messages.
+
+## If something is down
+
+- **No relay:** messages queue in memory and send on reconnect. The status
+  line reads `offline, will retry`.
+- **No wallet:** chat still works and the payment buttons are off.
+- **A payment that gets no answer** is shown as unknown, never as failed,
+  until the wallet says which.
+
+## Demo and user test
+
+- [`docs/demo.md`](docs/demo.md): the three-minute demo, how to prepare it,
+  and what to do if the live payment fails.
+- [`docs/threat-model.md`](docs/threat-model.md): what is protected, from
+  whom, which test checks each threat, and what is left open.
+- [`docs/user-test.md`](docs/user-test.md): the scripted task for one seller.
+  Its results table is empty: no session has taken place.
 
 ## Metrics we track
 
-| Metric                                                        | How                                             | Today                                                                                             |
-| ------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Page download size                                            | browser test byte counter                       | 32,739 bytes for the first load                                                                   |
-| Load time on a throttled mid-range phone profile              | browser test                                    | about 2.5 s to the set-up form (400 kbit/s, 400 ms latency, CPU 4x slower)                        |
-| Time from tapping Pay to the seller's wallet confirming       | integration and browser tests                   | about 1.3 s on one machine: 0.35 s to the buyer's "Paid", then 0.9 s to the seller's confirmation |
-| Payments shown as paid without proof                          | must be zero; unit and integration tests        | zero in every current test                                                                        |
-| Wallet requests refused out of scope or over budget           | must be all; integration tests against Alby Hub | all refused in the current tests                                                                  |
-| A first-time seller's time per task, and where they got stuck | scripted session with a real seller             | not done                                                                                          |
+| Metric                                                        | How                                                                        | Today                                                                                             |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Page download size                                            | browser test byte counter                                                  | 32,857 bytes for the first load                                                                   |
+| Text contrast, light and dark mode                            | computed from the page's colours (WCAG ratio; 4.5 is the minimum for text) | 5.2 or better in light mode, 8.2 or better in dark mode; white on the green button is 5.2         |
+| Load time on a throttled mid-range phone profile              | browser test                                                               | about 2.5 s to the set-up form (400 kbit/s, 400 ms latency, CPU 4x slower)                        |
+| Time from tapping Pay to the seller's wallet confirming       | integration and browser tests                                              | about 1.3 s on one machine: 0.35 s to the buyer's "Paid", then 0.9 s to the seller's confirmation |
+| Payments shown as paid without proof                          | must be zero; unit and integration tests                                   | zero in every current test                                                                        |
+| Wallet requests refused out of scope or over budget           | must be all; integration tests against Alby Hub                            | all refused in the current tests                                                                  |
+| A first-time seller's time per task, and where they got stuck | scripted session with a real seller                                        | not done                                                                                          |
 
 The timings are from one browser-test run on one laptop on 2026-11-17, with
 every service on the same machine. The browser's throttling slows the page
