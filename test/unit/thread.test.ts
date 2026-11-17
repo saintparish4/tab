@@ -20,6 +20,7 @@ import { generateSecretKey, getPublicKey } from 'nostr-tools/pure'
 import { makeRumor, type Rumor } from '../../src/core/giftwrap.ts'
 import { binding, checkRequest, receiptTags, requestTags, verifyPreimage } from '../../src/core/pay.ts'
 import { buildThread, type Facts } from '../../src/core/thread.ts'
+import { fakeInvoice } from './fake-invoice.ts'
 
 const NOW = 1_800_000_000
 const merchant = generateSecretKey()
@@ -29,28 +30,6 @@ const M = getPublicKey(merchant)
 const C = getPublicKey(customer)
 const X = getPublicKey(mallory)
 const NONE: Facts = { preimages: new Map(), settled: new Set() }
-
-function fakeInvoice(o: {
-  paymentHash: string
-  description: string
-  amountMsat?: bigint
-  timestamp?: number
-  expiry?: number
-  network?: string
-}): string {
-  const int = (n: number, words: number) =>
-    Array.from({ length: words }, (_, i) => Math.floor(n / 32 ** (words - 1 - i)) % 32)
-  const field = (type: number, data: number[]) => [type, ...int(data.length, 2), ...data]
-  const words = [
-    ...int(o.timestamp ?? NOW, 7),
-    ...field(1, bech32.toWords(hexToBytes(o.paymentHash))),
-    ...field(16, new Array(52).fill(0)),
-    ...field(13, bech32.toWords(utf8ToBytes(o.description))),
-    ...field(6, int(o.expiry ?? 600, 4)),
-    ...new Array(104).fill(0),
-  ]
-  return bech32.encode(`ln${o.network ?? 'bcrt'}${(o.amountMsat ?? 2_500_000n) * 10n}p`, words, false)
-}
 
 /** A request the way the merchant's app builds it, plus the preimage only the merchant's node knows. */
 function order(n: number, at = NOW, opts: { from?: Uint8Array; to?: string; boundTo?: [string, string] } = {}) {
