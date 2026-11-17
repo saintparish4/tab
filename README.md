@@ -116,8 +116,8 @@ Out of scope: group chat, multiple wallets, media, zaps, contact discovery.
 | Bootstrap: funding, channel, two scoped wallet connections                                    | working                                             |
 | Protocol logic: event checks, gift wrap, NWC, invoices, payment binding, thread, login, vault | working, with unit and property tests               |
 | The app: chat, payment request, pay, "paid" verified on both sides                            | working on regtest, tested against the real stack   |
-| Tests of the wallet refusing out-of-scope and over-budget requests                            | not built yet; the refusal has been checked by hand |
-| Browser tests on a throttled phone profile                                                    | not built yet                                       |
+| Tests of the wallet refusing out-of-scope and over-budget requests                            | passing against Alby Hub and LND on regtest         |
+| Browser tests on a throttled phone profile                                                    | passing: the full flow on two emulated phones       |
 | Test with a real seller                                                                       | not yet done                                        |
 
 ## Run it
@@ -161,7 +161,15 @@ Open two windows, one per person:
 `?demo=` fills in the throwaway keys and wallet connections from
 `.stack/demo.json`. In each window, choose a PIN of six or more characters and
 press Start. The seller's status line reads `online · wallet: can request`, the
-buyer's `online · wallet: can pay`.
+buyer's `online · wallet: can pay · 10,000 of 10,000 sats left today`. That
+number is what the wallet reports for this connection. It is shown for
+information only: the Pay button never depends on it, and the wallet decides
+each payment.
+
+Every run adds to the same conversation, and the relay keeps it. To start
+again from an empty thread without rebuilding the stack, run
+`pnpm run demo:fresh` (it replaces the two throwaway chat keys and keeps the
+wallet connections), then choose "Erase this device" in each window.
 
 1. Send a message from either side.
 2. Seller: `250` in **Sats**, `chapati` in **For**, then **Request payment**.
@@ -177,11 +185,33 @@ buyer's `online · wallet: can pay`.
 scripts/fetch-fixtures.sh   # once: upstream test vectors at pinned commits, checksummed
 pnpm test                   # unit and property tests; no stack needed
 pnpm run test:it            # with the stack up: real relay, Alby Hubs and LND nodes
+pnpm run test:e2e           # with the stack up: the page itself, on two emulated phones
 pnpm run check              # type check
+
+pnpm verify                 # format check, type check and unit tests in one go
+pnpm verify:all             # the same, then the integration and browser tests
 ```
 
-The integration tests pay real regtest invoices, about 250 sats per run, from
-the buyer's 10,000 sat daily budget.
+As of 2026-11-17: 91 unit tests, 18 integration tests and 2 browser tests
+pass. There is no CI; these are local runs.
+
+A pre-commit hook runs `pnpm verify`. Turn it on once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The integration and browser tests pay real regtest invoices from the buyer's
+10,000 sat daily budget, so many runs in one day can exhaust it.
+
+Two scripts check what the stack keeps on disk:
+
+```bash
+docker compose logs --no-color > .stack/all.log
+node scripts/scan-logs.ts .stack/all.log          # keys, secrets or preimages in any log
+docker compose cp relay:/usr/src/app/db .stack/relay-db
+node scripts/scan-relay-db.ts .stack/relay-db/nostr.db   # what the relay operator can read
+```
 
 ### Check it yourself
 
@@ -231,20 +261,22 @@ the wallet enforces.
 | nostr-rs-relay | 0.10.0      | the one relay, with NIP-42 sign-in for private messages              |
 | nostr-tools    | 2.26.0      | signing, event hashing, NIP-44 encryption                            |
 
-| Path                               | What it is                                                                  |
-| ---------------------------------- | --------------------------------------------------------------------------- |
-| `src/core/`                        | the protocol logic, pure functions with no network: start here              |
-| `src/core/event.ts`                | the one gate every relay event passes before use                            |
-| `src/core/pay.ts`, `thread.ts`     | payment binding, and "paid" derived only from a verified preimage           |
-| `src/net/`                         | one WebSocket to the relay; wallet requests and their three outcomes        |
-| `src/client.ts`                    | the whole app without a screen; the page and the integration tests share it |
-| `src/main.ts`, `src/style.css`     | the three screens: set up, unlock, chat                                     |
-| `test/unit/`                       | upstream test vectors and property tests                                    |
-| `test/it/`                         | the full flow against the running stack                                     |
-| `infra/init.mjs`                   | bootstrap: channel, wallet set-up, the two scoped connections               |
-| `infra/native.sh`                  | the same stack without Docker                                               |
-| `infra/relay/config.toml`          | relay settings that the privacy claims depend on                            |
-| `docker-compose.yml`, `Dockerfile` | the one-command stack                                                       |
+| Path                               | What it is                                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `src/core/`                        | the protocol logic, pure functions with no network: start here                            |
+| `src/core/event.ts`                | the one gate every relay event passes before use                                          |
+| `src/core/pay.ts`, `thread.ts`     | payment binding, and "paid" derived only from a verified preimage                         |
+| `src/net/`                         | one WebSocket to the relay; wallet requests and their three outcomes                      |
+| `src/client.ts`                    | the whole app without a screen; the page and the integration tests share it               |
+| `src/main.ts`, `src/style.css`     | the three screens: set up, unlock, chat                                                   |
+| `test/unit/`                       | upstream test vectors, property tests, and the app logic against a scripted wallet        |
+| `test/it/`                         | the full flow, the wallet's refusals and an independent client, against the running stack |
+| `infra/init.mjs`                   | bootstrap: channel, wallet set-up, the two scoped connections                             |
+| `infra/native.sh`                  | the same stack without Docker                                                             |
+| `infra/relay/config.toml`          | relay settings that the privacy claims depend on                                          |
+| `e2e/`                             | the page on two emulated phones (Playwright)                                              |
+| `scripts/`                         | fixture capture, log and relay-disk scans, `demo:fresh`                                   |
+| `docker-compose.yml`, `Dockerfile` | the one-command stack                                                                     |
 
 ## The two secrets
 
@@ -277,14 +309,19 @@ Erasing the app does not revoke the wallet connection. Delete it in the wallet.
 
 ## Metrics we track
 
-| Metric                                                        | How                                             | Today                                                    |
-| ------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| Page download size                                            | browser test byte counter                       | not measured yet                                         |
-| Load time on a throttled mid-range phone profile              | browser test                                    | not measured yet                                         |
-| Time from tapping Pay to the seller's wallet confirming       | integration and browser tests                   | not measured yet                                         |
-| Payments shown as paid without proof                          | must be zero; unit and integration tests        | zero in every current test                               |
-| Wallet requests refused out of scope or over budget           | must be all; integration tests against Alby Hub | tests not built yet; an over-budget refusal seen by hand |
-| A first-time seller's time per task, and where they got stuck | scripted session with a real seller             | not done                                                 |
+| Metric                                                        | How                                             | Today                                                                                             |
+| ------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Page download size                                            | browser test byte counter                       | 32,739 bytes for the first load                                                                   |
+| Load time on a throttled mid-range phone profile              | browser test                                    | about 2.5 s to the set-up form (400 kbit/s, 400 ms latency, CPU 4x slower)                        |
+| Time from tapping Pay to the seller's wallet confirming       | integration and browser tests                   | about 1.3 s on one machine: 0.35 s to the buyer's "Paid", then 0.9 s to the seller's confirmation |
+| Payments shown as paid without proof                          | must be zero; unit and integration tests        | zero in every current test                                                                        |
+| Wallet requests refused out of scope or over budget           | must be all; integration tests against Alby Hub | all refused in the current tests                                                                  |
+| A first-time seller's time per task, and where they got stuck | scripted session with a real seller             | not done                                                                                          |
+
+The timings are from one browser-test run on one laptop on 2026-11-17, with
+every service on the same machine. The browser's throttling slows the page
+download but not WebSocket frames, so the payment timings say nothing about a
+slow link.
 
 ## Next iteration
 
