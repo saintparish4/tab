@@ -47,6 +47,10 @@ services:
       - -rpcpassword=tab
       - -zmqpubrawblock=tcp://0.0.0.0:28332
       - -zmqpubrawtx=tcp://0.0.0.0:28333
+    # Named, like LND's: the image declares this path a VOLUME, and an unnamed
+    # one is replaced on every `down`/`up` while the LND volumes are kept. LND
+    # then waits forever for blocks the new chain does not have.
+    volumes: ['bitcoind:/home/bitcoin/.bitcoin']
     healthcheck:
       test: ['CMD', 'bitcoin-cli', '-regtest', '-rpcuser=tab', '-rpcpassword=tab', 'getblockchaininfo']
       interval: 3s
@@ -140,6 +144,7 @@ services:
     ports: ['127.0.0.1:8080:8080']
 
 volumes:
+  bitcoind:
   lnd-merchant:
   lnd-customer:
   hub-merchant:
