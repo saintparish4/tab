@@ -130,10 +130,11 @@ async function main() {
 
   await shows(seller, '#status', 'wallet: can request', 60_000)
   await shows(buyer, '#status', 'sats left', 60_000)
-  const left = Number(
-    ((await buyer.locator('#status').textContent()) ?? '').match(/· ([\d,]+) of/)?.[1].replace(/,/g, ''),
-  )
-  if (!(left >= 300)) {
+  const status = (await buyer.locator('#status').textContent()) ?? ''
+  const found = status.match(/· ([\d,]+) of/)
+  if (!found) throw new Error(`could not read the buyer's budget from the status line: "${status}"`)
+  const left = Number(found[1].replace(/,/g, ''))
+  if (left < 300) {
     await say(`The buyer's wallet has ${left} sats of budget left today, too little for this demo.`, 4000)
     throw new Error(
       `buyer budget too low (${left} sats left). Issue a new connection: docker compose run --rm init && docker compose restart web`,
@@ -205,11 +206,12 @@ async function main() {
     await say('Both phones are live: try them yourself. Close this window when you are done.', 0)
     await page.waitForEvent('close', { timeout: 0 }).catch(() => {})
   }
-  await context.close()
+  const video = page.video()
+  await context.close() // the recording is complete only once the context has closed
+  const made = video ? await video.path() : null
   await browser.close()
-  if (videoDir) {
+  if (videoDir && made) {
     mkdirSync(join(OUT, '..'), { recursive: true })
-    const made = await page.video().path()
     rmSync(OUT, { force: true })
     renameSync(made, OUT)
     rmSync(videoDir, { recursive: true, force: true })
