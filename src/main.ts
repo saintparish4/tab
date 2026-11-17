@@ -286,7 +286,7 @@ function draw(): void {
         ? c.role.canPay
           ? 'wallet: can pay' +
             (c.budget
-              ? ` · ${sats(c.budget.totalMsat - c.budget.usedMsat)} of ${sats(c.budget.totalMsat)} sats left${c.budget.daily ? ' today' : ''}`
+              ? ` · ${sats(c.budget.leftMsat)} of ${sats(c.budget.totalMsat)} sats left${c.budget.daily ? ' today' : ''}`
               : '')
           : c.role.canRequest
             ? 'wallet: can request'

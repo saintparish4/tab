@@ -89,19 +89,28 @@ export function readResponse(conn: Conn, requestId: string, method: string, raw:
   return { ok: true, result: b.result as Record<string, unknown> }
 }
 
-export type Budget = { usedMsat: number; totalMsat: number; daily: boolean }
+export type Budget = { usedMsat: number; totalMsat: number; leftMsat: number; daily: boolean }
 
 /**
  * Reads a `get_budget` result. Returns null when the connection has no budget
  * or the numbers make no sense. The value is for display only: it is the
  * wallet's word at one moment, and the wallet alone decides each payment.
+ *
+ * `used` above `total` is kept, not refused: it happens when the owner lowers
+ * a connection's budget after spending from it. Nothing is left then, so
+ * `leftMsat` stops at 0 instead of going negative.
  */
 export function readBudget(result: Record<string, unknown>): Budget | null {
   const used = result.used_budget
   const total = result.total_budget
   const whole = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0
   if (!whole(used) || !whole(total) || total === 0) return null
-  return { usedMsat: used, totalMsat: total, daily: result.renewal_period === 'daily' }
+  return {
+    usedMsat: used,
+    totalMsat: total,
+    leftMsat: Math.max(0, total - used),
+    daily: result.renewal_period === 'daily',
+  }
 }
 
 /** The info event is public and replayable: use it for negotiation only, never as proof. */

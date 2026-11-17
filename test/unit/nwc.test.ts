@@ -13,7 +13,7 @@ import { describe, expect, test } from 'vitest'
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure'
 import { v2 as nip44 } from 'nostr-tools/nip44'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import { makeRequest, parseConn, readInfo, readResponse, type Conn } from '../../src/core/nwc.ts'
+import { makeRequest, parseConn, readBudget, readInfo, readResponse, type Conn } from '../../src/core/nwc.ts'
 import { tagValue } from '../../src/core/event.ts'
 
 const NOW = 1_800_000_000
@@ -183,6 +183,45 @@ describe('readInfo', () => {
     expect(() => readInfo(conn, info([['encryption', 'nip04']]))).toThrow(/downgrade/)
     expect(() => readInfo(conn, info([]))).toThrow(/downgrade/)
     expect(() => readInfo(conn, info([['encryption', 'nip44_v2']], generateSecretKey()))).toThrow(/not from the wallet/)
+  })
+})
+
+describe('readBudget', () => {
+  const read = (used: unknown, total: unknown, period: unknown = 'daily') =>
+    readBudget({ used_budget: used, total_budget: total, renewal_period: period })
+
+  test('reads what Alby Hub sends, in msat', () => {
+    expect(read(505_000, 10_000_000)).toEqual({
+      usedMsat: 505_000,
+      totalMsat: 10_000_000,
+      leftMsat: 9_495_000,
+      daily: true,
+    })
+    expect(read(0, 100_000, 'never')).toMatchObject({ leftMsat: 100_000, daily: false })
+  })
+
+  test('used above total (budget lowered after spending) leaves 0, never a negative number', () => {
+    expect(read(505_000, 100_000)).toEqual({ usedMsat: 505_000, totalMsat: 100_000, leftMsat: 0, daily: true })
+    fc.assert(
+      fc.property(fc.nat(), fc.integer({ min: 1, max: Number.MAX_SAFE_INTEGER }), (used, total) => {
+        const b = read(used, total)!
+        expect(b.leftMsat).toBeGreaterThanOrEqual(0)
+        expect(b.leftMsat).toBeLessThanOrEqual(total)
+      }),
+    )
+  })
+
+  test('no budget, or numbers that make no sense, give nothing to show', () => {
+    for (const [used, total] of [
+      [0, 0],
+      [-1, 100],
+      [1.5, 100],
+      ['5', 100],
+      [5, null],
+      [undefined, undefined],
+      [5, 2 ** 53],
+    ])
+      expect(read(used, total)).toBeNull()
   })
 })
 

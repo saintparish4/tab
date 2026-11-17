@@ -205,7 +205,7 @@ describe('the budget line', () => {
   test('shows what the wallet reported, and refreshes after a payment', async () => {
     const o = await customerWithRequest(methods, { get_budget: budget(505_000) })
     await vi.waitFor(() => expect(client.budget).not.toBeNull())
-    expect(client.budget).toEqual({ usedMsat: 505_000, totalMsat: 10_000_000, daily: true })
+    expect(client.budget).toEqual({ usedMsat: 505_000, totalMsat: 10_000_000, leftMsat: 9_495_000, daily: true })
 
     fake.handlers.get_budget = budget(3_005_000)
     fake.handlers.pay_invoice = () => ok({ preimage: o.preimage })
