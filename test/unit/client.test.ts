@@ -82,6 +82,14 @@ const conn = { walletPk: M, relay: 'ws://unused', secret: customer, clientPk: C 
 const ok = (result: Record<string, unknown>): NwcReply => ({ ok: true, result })
 const count = (method: string) => fake.calls.filter((c) => c.method === method).length
 
+/**
+ * vi.waitFor gives up after 1 s by default. Nothing here waits on a clock, but
+ * the client's start-up does real signing and encryption, and on a busy
+ * machine (a browser running, other test files in parallel) that has taken
+ * longer than a second. A longer limit costs nothing when the test passes.
+ */
+const waitFor = <T>(fn: () => T | Promise<T>) => vi.waitFor(fn, { timeout: 10_000 })
+
 let client: InstanceType<typeof Client>
 
 /** A customer whose wallet lists `methods`, holding one payable request from the merchant. */
@@ -90,7 +98,7 @@ async function customerWithRequest(methods = ['pay_invoice', 'lookup_invoice'], 
   fake.calls.length = 0
   fake.published.length = 0
   client = new Client({ sk: customer, peer: M, relayUrl: 'ws://unused', network: 'bcrt', conn })
-  await vi.waitFor(() => expect(client.role.canPay).toBe(true))
+  await waitFor(() => expect(client.role.canPay).toBe(true))
 
   const now = Math.floor(Date.now() / 1000)
   const preimage = bytesToHex(sha256(utf8ToBytes('preimage ' + Math.random())))
@@ -204,13 +212,13 @@ describe('the budget line', () => {
 
   test('shows what the wallet reported, and refreshes after a payment', async () => {
     const o = await customerWithRequest(methods, { get_budget: budget(505_000) })
-    await vi.waitFor(() => expect(client.budget).not.toBeNull())
+    await waitFor(() => expect(client.budget).not.toBeNull())
     expect(client.budget).toEqual({ usedMsat: 505_000, totalMsat: 10_000_000, leftMsat: 9_495_000, daily: true })
 
     fake.handlers.get_budget = budget(3_005_000)
     fake.handlers.pay_invoice = () => ok({ preimage: o.preimage })
     await client.pay(o.id)
-    await vi.waitFor(() => expect(client.budget?.usedMsat).toBe(3_005_000))
+    await waitFor(() => expect(client.budget?.usedMsat).toBe(3_005_000))
   })
 
   test('never blocks a payment: a spent budget still sends pay_invoice to the wallet', async () => {
@@ -227,7 +235,7 @@ describe('the budget line', () => {
 
   test('is dropped, not kept stale, when the wallet stops answering or lacks the method', async () => {
     await customerWithRequest(methods, { get_budget: budget(0) })
-    await vi.waitFor(() => expect(client.budget).not.toBeNull())
+    await waitFor(() => expect(client.budget).not.toBeNull())
     delete fake.handlers.get_budget
     await client.refreshBudget()
     expect(client.budget).toBeNull()

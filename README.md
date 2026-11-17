@@ -193,6 +193,21 @@ wallet connections), then choose "Erase this device" in each window.
    `Over this connection's spending limit.`: the buyer's wallet refused it, and
    the request stays `Not paid`.
 
+### Watch it play by itself
+
+The same flow, driven on two phone-sized screens side by side with a caption
+for each step. It uses the real page and the running stack, and each run
+starts a new conversation with newly generated chat keys.
+
+```bash
+pnpm exec playwright install chromium   # once: the browser it drives
+pnpm run demo:watch                     # opens a window and plays it; the phones stay usable afterwards
+pnpm run demo:record                    # no window: saves .stack/walkthrough.webm (and .mp4 with ffmpeg)
+```
+
+It takes about a minute and pays 250 regtest sats from the buyer's budget.
+`demo:watch` needs a desktop to open a window on.
+
 ### Run the tests
 
 ```bash
@@ -289,7 +304,7 @@ the wallet enforces.
 | `infra/native.sh`                  | the same stack without Docker                                                             |
 | `infra/relay/config.toml`          | relay settings that the privacy claims depend on                                          |
 | `e2e/`                             | the page on two emulated phones (Playwright)                                              |
-| `scripts/`                         | fixture capture, log and relay-disk scans, `demo:fresh`                                   |
+| `scripts/`                         | fixture capture, log and relay-disk scans, `demo:fresh`, the self-playing walkthrough     |
 | `docs/`                            | the threat model, the demo script and the scripted task for a seller                      |
 | `docker-compose.yml`, `Dockerfile` | the one-command stack                                                                     |
 

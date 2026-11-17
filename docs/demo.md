@@ -93,5 +93,7 @@ Regtest has no outside dependency, so a failure is local. In order:
    demo of the contract than a success.
 5. Nothing works: run `pnpm run test:it` in the terminal and narrate the test
    names. It performs the same flow against the same wallets.
-6. No stack at all: play the screen recording you made the night before.
-   Record it once the happy path first works; do not wait for polish.
+6. Hands are shaking or time is short: `pnpm run demo:watch` plays the same
+   flow by itself in one window, with captions. Narrate over it.
+7. No stack at all: play `.stack/walkthrough.mp4`. Make it the night before
+   with `pnpm run demo:record`, and copy it somewhere outside the repo folder.

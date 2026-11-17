@@ -14,6 +14,8 @@
     "test:it": "vitest run test/it",
     "test:e2e": "playwright test --trace off",
     "demo:fresh": "node scripts/fresh-thread.mjs",
+    "demo:watch": "node scripts/walkthrough.mjs",
+    "demo:record": "node scripts/walkthrough.mjs --record",
     "check": "tsc",
     "verify": "pnpm format:check && pnpm check && pnpm test",
     "verify:all": "pnpm verify && pnpm test:it && pnpm test:e2e",
