@@ -23,7 +23,7 @@ import { bytesToHex, randomBytes } from '@noble/hashes/utils.js'
 import { decodeInvoice } from './core/bolt11.ts'
 import type { Event } from './core/event.ts'
 import { makeRumor, unwrap, wrap, type Rumor } from './core/giftwrap.ts'
-import type { Conn } from './core/nwc.ts'
+import { readBudget, type Budget, type Conn } from './core/nwc.ts'
 import { binding, KIND_CHAT, receiptTags, requestTags, verifyPreimage, type Network } from './core/pay.ts'
 import { can, initial, reduce, role, type Action, type Session } from './core/session.ts'
 import { buildThread, type Item } from './core/thread.ts'
@@ -48,6 +48,8 @@ export class Client {
   /** payment hashes whose pay_invoice timed out: outcome unknown */
   readonly unknown = new Set<string>()
   readonly paying = new Set<string>()
+  /** what the wallet last said about this connection's spending limit; display only */
+  budget: Budget | null = null
   private rumors = new Map<string, Rumor>()
   private outbox = new Map<string, Event>()
   private preimages = new Map<string, string>()
@@ -171,10 +173,28 @@ export class Client {
       const reply = await this.wallet.call('get_info')
       if (!reply.ok || !Array.isArray(reply.result.methods)) throw new Error('wallet refused get_info')
       this.dispatch({ type: 'proof', requestId, methods: reply.result.methods.map(String), at: nowSec() })
+      void this.refreshBudget()
     } catch (e) {
       this.dispatch({ type: 'checkFailed', requestId })
       this.notice =
         e instanceof WalletTimeout ? 'Wallet did not answer. Chat still works; payments are off.' : (e as Error).message
+    }
+    this.changed()
+  }
+
+  /**
+   * Ask the wallet how much of this connection's budget is left, to show it
+   * before the user taps Pay. It never gates a payment: the number can be
+   * stale, so the wallet stays the only judge. On any failure the last value
+   * is dropped instead of being shown as current.
+   */
+  async refreshBudget(): Promise<void> {
+    if (!this.wallet || !can(this.session, 'get_budget', nowSec())) return
+    try {
+      const reply = await this.wallet.call('get_budget', {}, 8000)
+      this.budget = reply.ok ? readBudget(reply.result) : null
+    } catch {
+      this.budget = null
     }
     this.changed()
   }
@@ -219,12 +239,13 @@ export class Client {
     this.changed()
     try {
       const reply = await this.wallet.call('pay_invoice', { invoice: bolt11 }, 60000)
-      if (!reply.ok)
+      if (!reply.ok) {
         this.notice =
           reply.error.code === 'QUOTA_EXCEEDED'
             ? "Over this connection's spending limit."
             : `Payment failed: ${reply.error.code}`
-      else this.acceptPreimage(requestId, paymentHash, reply.result.preimage)
+        void this.refreshBudget()
+      } else this.acceptPreimage(requestId, paymentHash, reply.result.preimage)
     } catch (e) {
       if (e instanceof WalletTimeout) {
         this.unknown.add(paymentHash)
@@ -242,6 +263,7 @@ export class Client {
     }
     this.preimages.set(paymentHash, preimage as string)
     this.unknown.delete(paymentHash)
+    void this.refreshBudget()
     this.post(receiptTags(this.o.peer, requestId, preimage as string), 'Paid. Proof of payment attached.')
   }
 
@@ -290,5 +312,6 @@ export class Client {
     this.outbox.clear()
     this.preimages.clear()
     this.settled.clear()
+    this.budget = null
   }
 }

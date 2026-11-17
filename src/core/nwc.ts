@@ -89,6 +89,21 @@ export function readResponse(conn: Conn, requestId: string, method: string, raw:
   return { ok: true, result: b.result as Record<string, unknown> }
 }
 
+export type Budget = { usedMsat: number; totalMsat: number; daily: boolean }
+
+/**
+ * Reads a `get_budget` result. Returns null when the connection has no budget
+ * or the numbers make no sense. The value is for display only: it is the
+ * wallet's word at one moment, and the wallet alone decides each payment.
+ */
+export function readBudget(result: Record<string, unknown>): Budget | null {
+  const used = result.used_budget
+  const total = result.total_budget
+  const whole = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0
+  if (!whole(used) || !whole(total) || total === 0) return null
+  return { usedMsat: used, totalMsat: total, daily: result.renewal_period === 'daily' }
+}
+
 /** The info event is public and replayable: use it for negotiation only, never as proof. */
 export function readInfo(conn: Conn, raw: unknown): { methods: string[] } {
   const ev = parseEvent(raw)

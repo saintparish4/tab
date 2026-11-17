@@ -52,6 +52,12 @@ describe('one conversation, end to end', () => {
     expect(customer.role).toEqual({ canRequest: false, canPay: true })
   })
 
+  test('the buyer is shown the budget the wallet reports for its connection', async () => {
+    const budget = await until('customer budget', () => customer.budget ?? undefined)
+    expect(budget).toMatchObject({ totalMsat: 10_000_000, daily: true })
+    expect(budget.usedMsat).toBeLessThanOrEqual(budget.totalMsat)
+  })
+
   test('message, request, pay, and both sides see a verified result', async () => {
     const tag = 'order-' + Date.now()
     customer.send(`two chapati and tea please (${tag})`)
@@ -65,6 +71,7 @@ describe('one conversation, end to end', () => {
     expect(request.pay).toMatchObject({ role: 'payer', amountMsat: 250000n })
     expect((await lnd('merchant', '/v1/invoice/' + request.pay!.paymentHash)).state).toBe('OPEN')
 
+    const usedBefore = customer.budget!.usedMsat
     const t0 = Date.now()
     await customer.pay(request.id)
     await until(
@@ -75,6 +82,8 @@ describe('one conversation, end to end', () => {
       'merchant shows settled',
       () => find(merchant, 'Payment request: 250 sats for ' + tag)?.pay?.state === 'settled',
     )
+    // The wallet counts the payment (and any fee) against the budget it reports.
+    await until('budget reflects the payment', () => customer.budget!.usedMsat >= usedBefore + 250_000)
     console.log(
       `[measured] tap Pay -> merchant sees wallet-confirmed settlement: ${Date.now() - t0} ms (local relay, regtest, one hop)`,
     )

@@ -272,6 +272,8 @@ function bubble(item: Item): HTMLElement {
   return li
 }
 
+const sats = (msat: number) => Math.floor(msat / 1000).toLocaleString('en-US')
+
 function draw(): void {
   const c = client
   const list = document.getElementById('thread')
@@ -282,7 +284,10 @@ function draw(): void {
       ? 'no wallet'
       : s.wallet.w === 'ready'
         ? c.role.canPay
-          ? 'wallet: can pay'
+          ? 'wallet: can pay' +
+            (c.budget
+              ? ` · ${sats(c.budget.totalMsat - c.budget.usedMsat)} of ${sats(c.budget.totalMsat)} sats left${c.budget.daily ? ' today' : ''}`
+              : '')
           : c.role.canRequest
             ? 'wallet: can request'
             : 'wallet: no useful permission'
