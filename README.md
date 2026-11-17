@@ -43,12 +43,12 @@ up. How we will estimate it:
 
 ## How it works
 
-| Step | Today | With Tab |
-|---|---|---|
-| Ask for payment | paste an invoice from another app | one field in the thread; the seller's wallet makes an invoice tied to this conversation |
-| Pay | copy it into a wallet app | one tap; the buyer's wallet enforces its own spending limit |
-| Confirm | screenshot, or search the wallet | the seller's phone asks the seller's own wallet |
-| "I already paid" | an argument | changes nothing on screen |
+| Step             | Today                             | With Tab                                                                                |
+| ---------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
+| Ask for payment  | paste an invoice from another app | one field in the thread; the seller's wallet makes an invoice tied to this conversation |
+| Pay              | copy it into a wallet app         | one tap; the buyer's wallet enforces its own spending limit                             |
+| Confirm          | screenshot, or search the wallet  | the seller's phone asks the seller's own wallet                                         |
+| "I already paid" | an argument                       | changes nothing on screen                                                               |
 
 Built on open protocols, with no server of our own:
 
@@ -74,7 +74,7 @@ It does not prove who you are, that the wallet has money, or anything at all
 to the other person. A wallet connection is a spending permission, not an
 identity, so Tab uses it for permissions only.
 
-What the other person *can* check is each payment:
+What the other person _can_ check is each payment:
 
 - **Bound to the conversation.** The invoice's description is a hash of both
   chat keys and a random reference. An invoice issued for one conversation is
@@ -87,13 +87,13 @@ What the other person *can* check is each payment:
 
 The hackathon's five judging criteria, and how Tab meets each.
 
-| Criterion | What we aim for |
-|---|---|
-| **Usefulness & local impact** | One primary user (a seller who takes orders by message), one daily workflow (order, request, pay, confirm), and a reach estimate built on a public count, not a guess |
-| **Security by design** | Threat model and trust boundaries written down. Least privilege: the seller's wallet connection cannot spend, and the buyer's has a budget, both enforced by the wallet. Secrets PIN-encrypted on the device and never sent to a server. Every relay event validated before use. No logging at all in the app. Proven libraries for the cryptography (`nostr-tools`, `@noble`); our own code only where a library helper was unsafe for this use. |
-| **UX/UI quality** | One small page with no framework, web fonts or images, so it loads on a slow link and a mid-range phone. Large touch targets and system colours. Plain labels ("Paid ✓ confirmed by your wallet", "Waiting for payment"), and a timed-out payment shown as "unknown", never as "failed". |
-| **Working MVP** | One command (`docker compose up`, or `infra/native.sh up` without Docker). Seed data: a funded regtest channel and two ready-made wallet connections. A happy path anyone can run, and tests against the real wallet and Lightning nodes, not mockups. |
-| **Clear pitch & docs** | A 3-minute demo (problem, solution, impact, next steps), and this README: setup, architecture diagram, constraints, metrics and the next iteration. |
+| Criterion                     | What we aim for                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Usefulness & local impact** | One primary user (a seller who takes orders by message), one daily workflow (order, request, pay, confirm), and a reach estimate built on a public count, not a guess                                                                                                                                                                                                                                                                             |
+| **Security by design**        | Threat model and trust boundaries written down. Least privilege: the seller's wallet connection cannot spend, and the buyer's has a budget, both enforced by the wallet. Secrets PIN-encrypted on the device and never sent to a server. Every relay event validated before use. No logging at all in the app. Proven libraries for the cryptography (`nostr-tools`, `@noble`); our own code only where a library helper was unsafe for this use. |
+| **UX/UI quality**             | One small page with no framework, web fonts or images, so it loads on a slow link and a mid-range phone. Large touch targets and system colours. Plain labels ("Paid ✓ confirmed by your wallet", "Waiting for payment"), and a timed-out payment shown as "unknown", never as "failed".                                                                                                                                                          |
+| **Working MVP**               | One command (`docker compose up`, or `infra/native.sh up` without Docker). Seed data: a funded regtest channel and two ready-made wallet connections. A happy path anyone can run, and tests against the real wallet and Lightning nodes, not mockups.                                                                                                                                                                                            |
+| **Clear pitch & docs**        | A 3-minute demo (problem, solution, impact, next steps), and this README: setup, architecture diagram, constraints, metrics and the next iteration.                                                                                                                                                                                                                                                                                               |
 
 The submission asks for a brief presentation, a prototype, and at least one
 Bitcoin or Lightning wallet implementation. Ours is Nostr Wallet Connect,
@@ -110,14 +110,14 @@ Out of scope: group chat, multiple wallets, media, zaps, contact discovery.
 
 ## Status
 
-| Part | State |
-|---|---|
+| Part                                                                        | State                          |
+| --------------------------------------------------------------------------- | ------------------------------ |
 | Regtest stack: bitcoind, two LND nodes with a channel, relay, two Alby Hubs | working with `infra/native.sh` |
-| Bootstrap: funding, channel, two scoped wallet connections | working |
-| Same stack with `docker compose` | in testing |
-| Protocol logic and its tests | in progress |
-| The app | in progress |
-| Test with a real seller | not yet done |
+| Bootstrap: funding, channel, two scoped wallet connections                  | working                        |
+| Same stack with `docker compose`                                            | in testing                     |
+| Protocol logic and its tests                                                | in progress                    |
+| The app                                                                     | in progress                    |
+| Test with a real seller                                                     | not yet done                   |
 
 ## Run what exists today
 
@@ -185,30 +185,30 @@ the wallet enforces.
      Lightning node  ◄──────── payment ────────  Lightning node
 ```
 
-| Component | Version | Role |
-|---|---|---|
-| Bitcoin Core | 32.1 | regtest chain |
-| LND | 0.21.8-beta | one Lightning node per user; its records are the proof of settlement |
-| Alby Hub | 1.24.7 | NWC wallet service; decides what each connection may do |
-| nostr-rs-relay | 0.10.0 | the one relay, with NIP-42 sign-in for private messages |
-| nostr-tools | 2.26.0 | signing, event hashing, NIP-44 encryption |
+| Component      | Version     | Role                                                                 |
+| -------------- | ----------- | -------------------------------------------------------------------- |
+| Bitcoin Core   | 32.1        | regtest chain                                                        |
+| LND            | 0.21.8-beta | one Lightning node per user; its records are the proof of settlement |
+| Alby Hub       | 1.24.7      | NWC wallet service; decides what each connection may do              |
+| nostr-rs-relay | 0.10.0      | the one relay, with NIP-42 sign-in for private messages              |
+| nostr-tools    | 2.26.0      | signing, event hashing, NIP-44 encryption                            |
 
-| Path | What it is |
-|---|---|
-| `infra/init.mjs` | bootstrap: channel, wallet set-up, the two scoped connections |
-| `infra/native.sh` | the same stack without Docker |
-| `infra/relay/config.toml` | relay settings that the privacy claims depend on |
-| `docker-compose.yml`, `Dockerfile` | the one-command stack |
+| Path                               | What it is                                                    |
+| ---------------------------------- | ------------------------------------------------------------- |
+| `infra/init.mjs`                   | bootstrap: channel, wallet set-up, the two scoped connections |
+| `infra/native.sh`                  | the same stack without Docker                                 |
+| `infra/relay/config.toml`          | relay settings that the privacy claims depend on              |
+| `docker-compose.yml`, `Dockerfile` | the one-command stack                                         |
 
 ## The two secrets
 
-| | Nostr key (identity) | Wallet connection (permission) |
-|---|---|---|
-| Can do | read your messages, sign as you | spend or invoice within the wallet's limits |
-| Cannot do | move money | read or sign messages |
-| If it leaks | every stored conversation is readable, with no way to revoke the key | spending up to the budget until you delete the connection in your wallet |
-| Where it lives | on the device, PIN-encrypted | on the device, PIN-encrypted |
-| Sent to a server | never | never |
+|                  | Nostr key (identity)                                                 | Wallet connection (permission)                                           |
+| ---------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Can do           | read your messages, sign as you                                      | spend or invoice within the wallet's limits                              |
+| Cannot do        | move money                                                           | read or sign messages                                                    |
+| If it leaks      | every stored conversation is readable, with no way to revoke the key | spending up to the budget until you delete the connection in your wallet |
+| Where it lives   | on the device, PIN-encrypted                                         | on the device, PIN-encrypted                                             |
+| Sent to a server | never                                                                | never                                                                    |
 
 Erasing the app does not revoke the wallet connection. Delete it in the wallet.
 
@@ -231,14 +231,14 @@ Erasing the app does not revoke the wallet connection. Delete it in the wallet.
 
 ## Metrics we track
 
-| Metric | How |
-|---|---|
-| Page download size | browser test byte counter |
-| Load time on a throttled mid-range phone profile | browser test |
-| Time from tapping Pay to the seller's wallet confirming | integration and browser tests |
-| Payments shown as paid without proof | must be zero; unit and integration tests |
-| Wallet requests refused out of scope or over budget | must be all; integration tests against Alby Hub |
-| A first-time seller's time per task, and where they got stuck | scripted session with a real seller |
+| Metric                                                        | How                                             |
+| ------------------------------------------------------------- | ----------------------------------------------- |
+| Page download size                                            | browser test byte counter                       |
+| Load time on a throttled mid-range phone profile              | browser test                                    |
+| Time from tapping Pay to the seller's wallet confirming       | integration and browser tests                   |
+| Payments shown as paid without proof                          | must be zero; unit and integration tests        |
+| Wallet requests refused out of scope or over budget           | must be all; integration tests against Alby Hub |
+| A first-time seller's time per task, and where they got stuck | scripted session with a real seller             |
 
 ## Next iteration
 

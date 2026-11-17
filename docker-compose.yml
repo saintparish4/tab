@@ -13,7 +13,7 @@ x-lnd: &lnd
   depends_on:
     bitcoind: { condition: service_healthy }
   healthcheck:
-    test: ["CMD", "lncli", "--lnddir=/data", "--network=regtest", "getinfo"]
+    test: ['CMD', 'lncli', '--lnddir=/data', '--network=regtest', 'getinfo']
     interval: 3s
     retries: 40
 
@@ -23,15 +23,15 @@ x-hub: &hub
 
 x-hub-env: &hub-env
   WORK_DIR: /data
-  PORT: "8080"
+  PORT: '8080'
   RELAY: ws://relay:7777
   LN_BACKEND_TYPE: LND
   LND_CERT_FILE: /lnd/tls.cert
   LND_MACAROON_FILE: /lnd/data/chain/bitcoin/regtest/admin.macaroon
   # Keep the wallet from contacting Alby's servers: this is an offline demo.
-  SEND_EVENTS_TO_ALBY: "false"
-  AUTO_LINK_ALBY_ACCOUNT: "false"
-  HIDE_UPDATE_BANNER: "true"
+  SEND_EVENTS_TO_ALBY: 'false'
+  AUTO_LINK_ALBY_ACCOUNT: 'false'
+  HIDE_UPDATE_BANNER: 'true'
 
 services:
   bitcoind:
@@ -48,7 +48,7 @@ services:
       - -zmqpubrawblock=tcp://0.0.0.0:28332
       - -zmqpubrawtx=tcp://0.0.0.0:28333
     healthcheck:
-      test: ["CMD", "bitcoin-cli", "-regtest", "-rpcuser=tab", "-rpcpassword=tab", "getblockchaininfo"]
+      test: ['CMD', 'bitcoin-cli', '-regtest', '-rpcuser=tab', '-rpcpassword=tab', 'getblockchaininfo']
       interval: 3s
       retries: 40
 
@@ -69,21 +69,21 @@ services:
       - --listen=0.0.0.0:9735
       - --tlsextradomain=lnd-merchant
       - --tlsextradomain=lnd-customer
-    volumes: ["lnd-merchant:/data"]
-    ports: ["127.0.0.1:8081:8080"]
+    volumes: ['lnd-merchant:/data']
+    ports: ['127.0.0.1:8081:8080']
 
   lnd-customer:
     <<: *lnd
     command: *lnd-args
-    volumes: ["lnd-customer:/data"]
-    ports: ["127.0.0.1:8082:8080"]
+    volumes: ['lnd-customer:/data']
+    ports: ['127.0.0.1:8082:8080']
 
   relay:
     image: scsibug/nostr-rs-relay:0.10.0@sha256:48d54c2d2781577cf3ed2951112f0953dc2c5e7c9d2ea20c64e8c0fa37d16e4d
     volumes:
       - ./infra/relay/config.toml:/usr/src/app/config.toml:ro
       - relay-db:/usr/src/app/db
-    ports: ["127.0.0.1:7777:7777"]
+    ports: ['127.0.0.1:7777:7777']
 
   hub-merchant:
     <<: *hub
@@ -93,8 +93,8 @@ services:
     environment:
       <<: *hub-env
       LND_ADDRESS: lnd-merchant:10009
-    volumes: ["hub-merchant:/data", "lnd-merchant:/lnd:ro"]
-    ports: ["127.0.0.1:8091:8080"]
+    volumes: ['hub-merchant:/data', 'lnd-merchant:/lnd:ro']
+    ports: ['127.0.0.1:8091:8080']
 
   hub-customer:
     <<: *hub
@@ -104,12 +104,12 @@ services:
     environment:
       <<: *hub-env
       LND_ADDRESS: lnd-customer:10009
-    volumes: ["hub-customer:/data", "lnd-customer:/lnd:ro"]
-    ports: ["127.0.0.1:8092:8080"]
+    volumes: ['hub-customer:/data', 'lnd-customer:/lnd:ro']
+    ports: ['127.0.0.1:8092:8080']
 
   init:
     build: .
-    command: ["node", "infra/init.mjs"]
+    command: ['node', 'infra/init.mjs']
     depends_on:
       lnd-merchant: { condition: service_healthy }
       lnd-customer: { condition: service_healthy }
@@ -133,11 +133,11 @@ services:
 
   web:
     build: .
-    command: ["sh", "-c", "pnpm run build && cp /shared/demo.json dist/demo.json && pnpm run preview"]
+    command: ['sh', '-c', 'pnpm run build && cp /shared/demo.json dist/demo.json && pnpm run preview']
     depends_on:
       init: { condition: service_completed_successfully }
-    volumes: ["./.stack:/shared:ro"]
-    ports: ["127.0.0.1:8080:8080"]
+    volumes: ['./.stack:/shared:ro']
+    ports: ['127.0.0.1:8080:8080']
 
 volumes:
   lnd-merchant:

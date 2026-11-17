@@ -67,19 +67,31 @@ export function buildThread(
       const hash = checked.invoice.paymentHash
       const proven =
         verifyPreimage(facts.preimages.get(hash), hash) ||
-        receipts.some((x) => x.pubkey === customer && tagValue(x, 'e') === r.id && verifyPreimage(tagValue(x, 'preimage'), hash))
+        receipts.some(
+          (x) => x.pubkey === customer && tagValue(x, 'e') === r.id && verifyPreimage(tagValue(x, 'preimage'), hash),
+        )
       const expired = checked.invoice.timestamp + checked.invoice.expiry <= now
       let state: PayView['state']
       if (mine) state = facts.settled.has(hash) ? 'settled' : proven ? 'proof' : expired ? 'expired' : 'awaiting'
       else state = proven ? 'paid' : expired ? 'expired' : 'payable'
-      return { ...item, pay: { role: mine ? 'payee' : 'payer', state, amountMsat: checked.invoice.amountMsat!, paymentHash: hash, bolt11: checked.bolt11 } }
+      return {
+        ...item,
+        pay: {
+          role: mine ? 'payee' : 'payer',
+          state,
+          amountMsat: checked.invoice.amountMsat!,
+          paymentHash: hash,
+          bolt11: checked.bolt11,
+        },
+      }
     }
 
     if (kind === 'receipt') {
       const target = byId.get(tagValue(r, 'e') ?? '')
       if (!target) return { ...item, warn: 'Refers to a request this device has not received' }
       const checked = checkRequest(target, r.pubkey, network)
-      const good = checked.ok && target.pubkey !== r.pubkey && verifyPreimage(tagValue(r, 'preimage'), checked.invoice.paymentHash)
+      const good =
+        checked.ok && target.pubkey !== r.pubkey && verifyPreimage(tagValue(r, 'preimage'), checked.invoice.paymentHash)
       return good ? item : { ...item, warn: 'Payment claim without valid proof' }
     }
     return item

@@ -23,9 +23,7 @@ import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { v2 } from 'nostr-tools/nip44'
 import { getPublicKey } from 'nostr-tools/pure'
 
-const vectors = JSON.parse(
-  readFileSync(new URL('../fixtures/nip44.vectors.json', import.meta.url), 'utf8'),
-).v2
+const vectors = JSON.parse(readFileSync(new URL('../fixtures/nip44.vectors.json', import.meta.url), 'utf8')).v2
 
 // The vectors give both secret keys; derive the second public key locally.
 function pub(secHex: string): Uint8Array {
@@ -35,9 +33,7 @@ function pub(secHex: string): Uint8Array {
 describe('NIP-44 v2 upstream vectors', () => {
   test('get_conversation_key: all valid cases', () => {
     for (const v of vectors.valid.get_conversation_key) {
-      expect(bytesToHex(v2.utils.getConversationKey(hexToBytes(v.sec1), v.pub2))).toBe(
-        v.conversation_key,
-      )
+      expect(bytesToHex(v2.utils.getConversationKey(hexToBytes(v.sec1), v.pub2))).toBe(v.conversation_key)
     }
     expect(vectors.valid.get_conversation_key.length).toBe(35)
   })
@@ -57,9 +53,9 @@ describe('NIP-44 v2 upstream vectors', () => {
   test('encrypt_decrypt: ciphertext is byte-identical for the given nonce, and decrypts', () => {
     for (const v of vectors.valid.encrypt_decrypt) {
       const key = hexToBytes(v.conversation_key)
-      expect(
-        bytesToHex(v2.utils.getConversationKey(hexToBytes(v.sec1), bytesToHex(pub(v.sec2)))),
-      ).toBe(v.conversation_key)
+      expect(bytesToHex(v2.utils.getConversationKey(hexToBytes(v.sec1), bytesToHex(pub(v.sec2))))).toBe(
+        v.conversation_key,
+      )
       expect(v2.encrypt(v.plaintext, key, hexToBytes(v.nonce))).toBe(v.payload)
       expect(v2.decrypt(v.payload, key)).toBe(v.plaintext)
     }

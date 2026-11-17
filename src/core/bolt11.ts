@@ -76,7 +76,7 @@ export function decodeInvoice(text: string): Invoice {
   let hashed = false
   let secrets = 0
   let expiry = 3600
-  for (let i = 7; i < data.length; ) {
+  for (let i = 7; i < data.length;) {
     if (i + 3 > data.length) throw new Error('invoice: truncated field')
     const type = data[i]
     const len = data[i + 1] * 32 + data[i + 2]

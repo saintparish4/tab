@@ -50,28 +50,38 @@ describe('session reducer', () => {
 
   test('lock, logout and disconnect leave no wallet fact behind', () => {
     fc.assert(
-      fc.property(fc.array(action, { maxLength: 30 }), fc.constantFrom<Action['type']>('lock', 'logout', 'disconnect'), at, (actions, end, now) => {
-        const s = reduce(run(actions), { type: end } as Action)
-        for (const m of ['pay_invoice', 'make_invoice', 'lookup_invoice']) expect(can(s, m, now)).toBe(false)
-        expect(JSON.stringify(s)).not.toContain('methods')
-      }),
+      fc.property(
+        fc.array(action, { maxLength: 30 }),
+        fc.constantFrom<Action['type']>('lock', 'logout', 'disconnect'),
+        at,
+        (actions, end, now) => {
+          const s = reduce(run(actions), { type: end } as Action)
+          for (const m of ['pay_invoice', 'make_invoice', 'lookup_invoice']) expect(can(s, m, now)).toBe(false)
+          expect(JSON.stringify(s)).not.toContain('methods')
+        },
+      ),
       { numRuns: 500 },
     )
   })
 
   test('can() requires unlocked, ready, fresh, and listed', () => {
     fc.assert(
-      fc.property(fc.array(action, { maxLength: 30 }), at, fc.constantFrom('pay_invoice', 'make_invoice'), (actions, now, m) => {
-        const s = run(actions)
-        if (can(s, m, now)) {
-          expect(s.unlocked && s.wallet.w === 'ready').toBe(true)
-          if (s.unlocked && s.wallet.w === 'ready') {
-            expect(s.wallet.methods).toContain(m)
-            expect(now - s.wallet.provenAt).toBeGreaterThanOrEqual(0)
-            expect(now - s.wallet.provenAt).toBeLessThanOrEqual(PROOF_TTL)
+      fc.property(
+        fc.array(action, { maxLength: 30 }),
+        at,
+        fc.constantFrom('pay_invoice', 'make_invoice'),
+        (actions, now, m) => {
+          const s = run(actions)
+          if (can(s, m, now)) {
+            expect(s.unlocked && s.wallet.w === 'ready').toBe(true)
+            if (s.unlocked && s.wallet.w === 'ready') {
+              expect(s.wallet.methods).toContain(m)
+              expect(now - s.wallet.provenAt).toBeGreaterThanOrEqual(0)
+              expect(now - s.wallet.provenAt).toBeLessThanOrEqual(PROOF_TTL)
+            }
           }
-        }
-      }),
+        },
+      ),
       { numRuns: 1000 },
     )
   })
@@ -81,14 +91,31 @@ describe('session reducer', () => {
     const live = run([{ type: 'unlock' }, { type: 'checkStarted', requestId: 'r1' }, proof])
     expect(can(live, 'pay_invoice', 100)).toBe(true)
     // same proof again after lock + unlock, after disconnect, and during a newer check
-    expect(can(run([{ type: 'unlock' }, { type: 'checkStarted', requestId: 'r1' }, proof, { type: 'lock' }, { type: 'unlock' }, proof]), 'pay_invoice', 100)).toBe(false)
+    expect(
+      can(
+        run([
+          { type: 'unlock' },
+          { type: 'checkStarted', requestId: 'r1' },
+          proof,
+          { type: 'lock' },
+          { type: 'unlock' },
+          proof,
+        ]),
+        'pay_invoice',
+        100,
+      ),
+    ).toBe(false)
     expect(can(reduce(reduce(live, { type: 'disconnect' }), proof), 'pay_invoice', 100)).toBe(false)
     expect(can(reduce(reduce(live, { type: 'checkStarted', requestId: 'r2' }), proof), 'pay_invoice', 100)).toBe(false)
     expect(can(reduce(initial, proof), 'pay_invoice', 100)).toBe(false)
   })
 
   test('a proof goes stale, and roles follow the methods the wallet listed', () => {
-    const s = run([{ type: 'unlock' }, { type: 'checkStarted', requestId: 'r1' }, { type: 'proof', requestId: 'r1', methods: ['make_invoice', 'lookup_invoice'], at: 100 }])
+    const s = run([
+      { type: 'unlock' },
+      { type: 'checkStarted', requestId: 'r1' },
+      { type: 'proof', requestId: 'r1', methods: ['make_invoice', 'lookup_invoice'], at: 100 },
+    ])
     expect(role(s, 100)).toEqual({ canRequest: true, canPay: false })
     expect(role(s, 100 + PROOF_TTL)).toEqual({ canRequest: true, canPay: false })
     expect(role(s, 101 + PROOF_TTL)).toEqual({ canRequest: false, canPay: false })
@@ -97,7 +124,11 @@ describe('session reducer', () => {
 })
 
 describe('vault', () => {
-  const secrets: Secrets = { sk: 'ab'.repeat(32), nwc: 'nostr+walletconnect://' + 'cd'.repeat(32) + '?relay=ws%3A%2F%2Fx&secret=' + 'ef'.repeat(32), peer: null }
+  const secrets: Secrets = {
+    sk: 'ab'.repeat(32),
+    nwc: 'nostr+walletconnect://' + 'cd'.repeat(32) + '?relay=ws%3A%2F%2Fx&secret=' + 'ef'.repeat(32),
+    peer: null,
+  }
   const FAST = 1000 // iteration count for tests only; the app uses the default
 
   test('round-trips, and the stored blob contains neither secret', async () => {

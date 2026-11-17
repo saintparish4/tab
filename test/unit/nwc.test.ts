@@ -33,7 +33,15 @@ function respond(
   const signer = o.signer ?? walletSk
   const key = nip44.utils.getConversationKey(signer, o.encryptTo ?? c.clientPk)
   return finalizeEvent(
-    { kind: o.kind ?? 23195, created_at: NOW, tags: [['p', o.p ?? c.clientPk], ['e', requestId]], content: nip44.encrypt(JSON.stringify(body), key) },
+    {
+      kind: o.kind ?? 23195,
+      created_at: NOW,
+      tags: [
+        ['p', o.p ?? c.clientPk],
+        ['e', requestId],
+      ],
+      content: nip44.encrypt(JSON.stringify(body), key),
+    },
     signer,
   )
 }
@@ -95,17 +103,25 @@ describe('readResponse: the login proof', () => {
   const req = makeRequest(conn, 'get_info', {}, NOW)
 
   test('accepts the wallet service answering this request', () => {
-    expect(readResponse(conn, req.id, 'get_info', respond(conn, req.id, okInfo))).toEqual({ ok: true, result: { methods: ['make_invoice'] } })
+    expect(readResponse(conn, req.id, 'get_info', respond(conn, req.id, okInfo))).toEqual({
+      ok: true,
+      result: { methods: ['make_invoice'] },
+    })
   })
 
   test('returns a wallet error as a value, not as success', () => {
     const body = { result_type: 'pay_invoice', error: { code: 'RESTRICTED', message: 'no' }, result: null }
-    expect(readResponse(conn, req.id, 'pay_invoice', respond(conn, req.id, body))).toEqual({ ok: false, error: { code: 'RESTRICTED', message: 'no' } })
+    expect(readResponse(conn, req.id, 'pay_invoice', respond(conn, req.id, body))).toEqual({
+      ok: false,
+      error: { code: 'RESTRICTED', message: 'no' },
+    })
   })
 
   test('forged: signed by anyone other than the wallet service', () => {
     const mallory = generateSecretKey()
-    expect(() => readResponse(conn, req.id, 'get_info', respond(conn, req.id, okInfo, { signer: mallory }))).toThrow(/not signed by the wallet/)
+    expect(() => readResponse(conn, req.id, 'get_info', respond(conn, req.id, okInfo, { signer: mallory }))).toThrow(
+      /not signed by the wallet/,
+    )
   })
 
   test('forged: signed with the leaked connection secret itself', () => {
@@ -145,14 +161,19 @@ describe('readResponse: the login proof', () => {
   test('malformed: wrong kind, tampered content, non-object body, neither result nor error', () => {
     expect(() => readResponse(conn, req.id, 'get_info', respond(conn, req.id, okInfo, { kind: 23194 }))).toThrow()
     const good = respond(conn, req.id, okInfo)
-    expect(() => readResponse(conn, req.id, 'get_info', { ...good, content: good.content.slice(0, -4) + 'AAAA' })).toThrow()
+    expect(() =>
+      readResponse(conn, req.id, 'get_info', { ...good, content: good.content.slice(0, -4) + 'AAAA' }),
+    ).toThrow()
     expect(() => readResponse(conn, req.id, 'get_info', respond(conn, req.id, 'hello'))).toThrow()
-    expect(() => readResponse(conn, req.id, 'get_info', respond(conn, req.id, { result_type: 'get_info' }))).toThrow(/neither/)
+    expect(() => readResponse(conn, req.id, 'get_info', respond(conn, req.id, { result_type: 'get_info' }))).toThrow(
+      /neither/,
+    )
   })
 })
 
 describe('readInfo', () => {
-  const info = (tags: string[][], signer = walletSk) => finalizeEvent({ kind: 13194, created_at: NOW, tags, content: 'pay_invoice get_info' }, signer)
+  const info = (tags: string[][], signer = walletSk) =>
+    finalizeEvent({ kind: 13194, created_at: NOW, tags, content: 'pay_invoice get_info' }, signer)
 
   test('reads methods when NIP-44 is offered', () => {
     expect(readInfo(conn, info([['encryption', 'nip44_v2 nip04']]))).toEqual({ methods: ['pay_invoice', 'get_info'] })
@@ -168,7 +189,8 @@ describe('readInfo', () => {
 const captured = new URL('../fixtures/captured.json', import.meta.url)
 describe.skipIf(!existsSync(captured))('frames captured from a real Alby Hub (scripts/capture.ts)', () => {
   const c = existsSync(captured) ? JSON.parse(readFileSync(captured, 'utf8')) : null
-  const real = () => parseConn(`nostr+walletconnect://${c.walletPk}?relay=${encodeURIComponent(c.relay)}&secret=${c.secret}`)
+  const real = () =>
+    parseConn(`nostr+walletconnect://${c.walletPk}?relay=${encodeURIComponent(c.relay)}&secret=${c.secret}`)
 
   test('the real info event and get_info response satisfy every rule above', () => {
     expect(readInfo(real(), c.info).methods).toContain('make_invoice')
@@ -177,12 +199,20 @@ describe.skipIf(!existsSync(captured))('frames captured from a real Alby Hub (sc
   })
 
   test('the real get_info response is refused as the answer to the make_invoice request', () => {
-    expect(() => readResponse(real(), c.makeInvoice.request.id, 'get_info', c.getInfo.response)).toThrow(/different request/)
+    expect(() => readResponse(real(), c.makeInvoice.request.id, 'get_info', c.getInfo.response)).toThrow(
+      /different request/,
+    )
   })
 
   test('on the wire: only kinds, keys and ciphertext are visible', () => {
     const wire = JSON.stringify([c.getInfo.request, c.getInfo.response, c.makeInvoice.request, c.makeInvoice.response])
-    for (const secretWord of ['get_info', 'make_invoice', 'tab1capture', c.makeInvoice.plain.response.payment_hash, c.secret]) {
+    for (const secretWord of [
+      'get_info',
+      'make_invoice',
+      'tab1capture',
+      c.makeInvoice.plain.response.payment_hash,
+      c.secret,
+    ]) {
       expect(wire).not.toContain(secretWord)
     }
   })

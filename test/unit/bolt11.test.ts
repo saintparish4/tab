@@ -26,7 +26,14 @@ const HASH = '0001020304050607080900010203040506070809000102030405060708090102'
 describe('BOLT 11 spec examples', () => {
   test('donation of any amount', () => {
     const inv = decodeInvoice(example('Please make a donation of any amount'))
-    expect(inv).toEqual({ network: 'bc', amountMsat: null, timestamp: 1496314658, expiry: 3600, paymentHash: HASH, description: 'Please consider supporting this project' })
+    expect(inv).toEqual({
+      network: 'bc',
+      amountMsat: null,
+      timestamp: 1496314658,
+      expiry: 3600,
+      paymentHash: HASH,
+      description: 'Please consider supporting this project',
+    })
   })
 
   test('2500u with a one-minute expiry', () => {

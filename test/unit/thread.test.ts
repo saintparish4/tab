@@ -30,8 +30,16 @@ const C = getPublicKey(customer)
 const X = getPublicKey(mallory)
 const NONE: Facts = { preimages: new Map(), settled: new Set() }
 
-function fakeInvoice(o: { paymentHash: string; description: string; amountMsat?: bigint; timestamp?: number; expiry?: number; network?: string }): string {
-  const int = (n: number, words: number) => Array.from({ length: words }, (_, i) => Math.floor(n / 32 ** (words - 1 - i)) % 32)
+function fakeInvoice(o: {
+  paymentHash: string
+  description: string
+  amountMsat?: bigint
+  timestamp?: number
+  expiry?: number
+  network?: string
+}): string {
+  const int = (n: number, words: number) =>
+    Array.from({ length: words }, (_, i) => Math.floor(n / 32 ** (words - 1 - i)) % 32)
   const field = (type: number, data: number[]) => [type, ...int(data.length, 2), ...data]
   const words = [
     ...int(o.timestamp ?? NOW, 7),
@@ -73,7 +81,10 @@ describe('checkRequest: what makes an invoice payable in this conversation', () 
     // Mallory holds a real invoice the merchant issued to HER, and presents it
     // to the customer as her own request, hoping the customer pays her order.
     const lifted = order(2, NOW, { from: mallory, to: C, boundTo: [M, X] })
-    expect(checkRequest(lifted.request, C, 'bcrt')).toEqual({ ok: false, reason: 'invoice was not issued for this conversation' })
+    expect(checkRequest(lifted.request, C, 'bcrt')).toEqual({
+      ok: false,
+      reason: 'invoice was not issued for this conversation',
+    })
   })
 
   test('refuses the wrong network, a missing amount, and garbage', () => {
@@ -82,7 +93,9 @@ describe('checkRequest: what makes an invoice payable in this conversation', () 
     expect(checkRequest(makeRumor(merchant, 14, requestTags(C, mainnet, 'r'), '', NOW), C, 'bcrt').ok).toBe(false)
     const noAmount = bech32.encode('lnbcrt', bech32.decode(mainnet as `${string}1${string}`, false).words, false)
     expect(checkRequest(makeRumor(merchant, 14, requestTags(C, noAmount, 'r'), '', NOW), C, 'bcrt').ok).toBe(false)
-    expect(checkRequest(makeRumor(merchant, 14, requestTags(C, 'lnbcrt1notaninvoice', 'r'), '', NOW), C, 'bcrt').ok).toBe(false)
+    expect(
+      checkRequest(makeRumor(merchant, 14, requestTags(C, 'lnbcrt1notaninvoice', 'r'), '', NOW), C, 'bcrt').ok,
+    ).toBe(false)
     expect(checkRequest(chat(merchant, C, 'hello', NOW), C, 'bcrt').ok).toBe(false)
   })
 
@@ -108,7 +121,8 @@ describe('verifyPreimage', () => {
         expect(verifyPreimage(guess, o.paymentHash)).toBe(false)
       }),
     )
-    for (const junk of [undefined, null, '', 'paid', o.preimage.toUpperCase(), o.paymentHash]) expect(verifyPreimage(junk, o.paymentHash)).toBe(false)
+    for (const junk of [undefined, null, '', 'paid', o.preimage.toUpperCase(), o.paymentHash])
+      expect(verifyPreimage(junk, o.paymentHash)).toBe(false)
   })
 })
 
@@ -117,7 +131,12 @@ describe('buildThread: payment state comes only from evidence', () => {
 
   test('customer view: payable until a matching preimage exists', () => {
     expect(stateOf([o.request], C, M, o.request.id)).toBe('payable')
-    expect(stateOf([o.request], C, M, o.request.id, { preimages: new Map([[o.paymentHash, o.preimage]]), settled: new Set() })).toBe('paid')
+    expect(
+      stateOf([o.request], C, M, o.request.id, {
+        preimages: new Map([[o.paymentHash, o.preimage]]),
+        settled: new Set(),
+      }),
+    ).toBe('paid')
     // after a reload the wallet fact is gone, but the customer's own receipt carries the proof
     expect(stateOf([o.request, receipt(o, o.preimage)], C, M, o.request.id)).toBe('paid')
   })
@@ -129,7 +148,9 @@ describe('buildThread: payment state comes only from evidence', () => {
     const items = buildThread([o.request, lie], M, C, 'bcrt', NONE, NOW + 10)
     expect(items.find((i) => i.id === lie.id)?.warn).toBe('Payment claim without valid proof')
     expect(stateOf([o.request, receipt(o, o.preimage)], M, C, o.request.id)).toBe('proof')
-    expect(stateOf([o.request], M, C, o.request.id, { preimages: new Map(), settled: new Set([o.paymentHash]) })).toBe('settled')
+    expect(stateOf([o.request], M, C, o.request.id, { preimages: new Map(), settled: new Set([o.paymentHash]) })).toBe(
+      'settled',
+    )
   })
 
   test('a valid preimage for a DIFFERENT invoice proves nothing about this one', () => {
@@ -177,9 +198,13 @@ describe('buildThread: a relay that reorders, repeats or drops', () => {
   test('any order and any duplication give the identical thread', () => {
     const expected = view(all)
     fc.assert(
-      fc.property(fc.shuffledSubarray(all, { minLength: all.length }), fc.array(fc.constantFrom(...all), { maxLength: 10 }), (shuffled, dupes) => {
-        expect(view([...dupes, ...shuffled])).toEqual(expected)
-      }),
+      fc.property(
+        fc.shuffledSubarray(all, { minLength: all.length }),
+        fc.array(fc.constantFrom(...all), { maxLength: 10 }),
+        (shuffled, dupes) => {
+          expect(view([...dupes, ...shuffled])).toEqual(expected)
+        },
+      ),
       { numRuns: 300 },
     )
   })
@@ -202,7 +227,11 @@ describe('buildThread: a relay that reorders, repeats or drops', () => {
   })
 
   test('rumors from outside the pair never enter the thread', () => {
-    const noise = [chat(mallory, M, 'hi', NOW), chat(merchant, X, 'other customer', NOW), order(13, NOW, { to: X }).request]
+    const noise = [
+      chat(mallory, M, 'hi', NOW),
+      chat(merchant, X, 'other customer', NOW),
+      order(13, NOW, { to: X }).request,
+    ]
     expect(view([...all, ...noise])).toEqual(view(all))
   })
 })

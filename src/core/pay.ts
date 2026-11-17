@@ -38,11 +38,21 @@ export function verifyPreimage(preimage: unknown, paymentHash: string): boolean 
 }
 
 export function requestTags(customerPk: string, bolt11: string, ref: string): string[][] {
-  return [['p', customerPk], ['tab', 'request'], ['bolt11', bolt11], ['ref', ref]]
+  return [
+    ['p', customerPk],
+    ['tab', 'request'],
+    ['bolt11', bolt11],
+    ['ref', ref],
+  ]
 }
 
 export function receiptTags(merchantPk: string, requestId: string, preimage: string): string[][] {
-  return [['p', merchantPk], ['tab', 'receipt'], ['e', requestId], ['preimage', preimage]]
+  return [
+    ['p', merchantPk],
+    ['tab', 'receipt'],
+    ['e', requestId],
+    ['preimage', preimage],
+  ]
 }
 
 export type Checked = { ok: true; invoice: Invoice; bolt11: string } | { ok: false; reason: string }

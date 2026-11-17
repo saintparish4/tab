@@ -1,0 +1,4 @@
+directive/
+pnpm-lock.yaml
+test/fixtures/
+.stack/

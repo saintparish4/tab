@@ -18,7 +18,12 @@ const tagArb = fc.array(fc.string({ maxLength: 20 }), { minLength: 1, maxLength:
 // Built with `map` into a fresh literal: nostr-tools refuses to sign the
 // null-prototype objects fast-check's `record` produces.
 const templateArb = fc
-  .tuple(fc.integer({ min: 0, max: 65535 }), fc.integer({ min: 0, max: 2 ** 32 }), fc.string({ maxLength: 200 }), fc.array(tagArb, { maxLength: 5 }))
+  .tuple(
+    fc.integer({ min: 0, max: 65535 }),
+    fc.integer({ min: 0, max: 2 ** 32 }),
+    fc.string({ maxLength: 200 }),
+    fc.array(tagArb, { maxLength: 5 }),
+  )
   .map(([kind, created_at, content, tags]) => ({ kind, created_at, content, tags }))
 const flipHex = (h: string, i: number) => h.slice(0, i) + (h[i] === '0' ? '1' : '0') + h.slice(i + 1)
 
@@ -107,12 +112,22 @@ describe('gift wrap', () => {
   // Build a wrap by hand so each layer can be forged independently.
   function forge(rumor: object, sealSigner: Uint8Array, to: string, sealTags: string[][] = []) {
     const seal = finalizeEvent(
-      { kind: 13, created_at: NOW, tags: sealTags, content: nip44.encrypt(JSON.stringify(rumor), nip44.utils.getConversationKey(sealSigner, to)) },
+      {
+        kind: 13,
+        created_at: NOW,
+        tags: sealTags,
+        content: nip44.encrypt(JSON.stringify(rumor), nip44.utils.getConversationKey(sealSigner, to)),
+      },
       sealSigner,
     )
     const k = generateSecretKey()
     return finalizeEvent(
-      { kind: 1059, created_at: NOW, tags: [['p', to]], content: nip44.encrypt(JSON.stringify(seal), nip44.utils.getConversationKey(k, to)) },
+      {
+        kind: 1059,
+        created_at: NOW,
+        tags: [['p', to]],
+        content: nip44.encrypt(JSON.stringify(seal), nip44.utils.getConversationKey(k, to)),
+      },
       k,
     )
   }
@@ -138,7 +153,12 @@ describe('gift wrap', () => {
     const notSeal = finalizeEvent({ kind: 1, created_at: NOW, tags: [], content: 'x' }, alice)
     const k = generateSecretKey()
     const w = finalizeEvent(
-      { kind: 1059, created_at: NOW, tags: [['p', bobPk]], content: nip44.encrypt(JSON.stringify(notSeal), nip44.utils.getConversationKey(k, bobPk)) },
+      {
+        kind: 1059,
+        created_at: NOW,
+        tags: [['p', bobPk]],
+        content: nip44.encrypt(JSON.stringify(notSeal), nip44.utils.getConversationKey(k, bobPk)),
+      },
       k,
     )
     expect(() => unwrap(w, bob)).toThrow(/kind 13/)

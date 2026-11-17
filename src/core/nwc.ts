@@ -57,7 +57,11 @@ export function makeRequest(conn: Conn, method: string, params: Record<string, u
       created_at: now,
       // `expiration` bounds how long a relay can sit on a payment request and
       // still have the wallet act on it.
-      tags: [['p', conn.walletPk], ['encryption', 'nip44_v2'], ['expiration', String(now + REQUEST_TTL)]],
+      tags: [
+        ['p', conn.walletPk],
+        ['encryption', 'nip44_v2'],
+        ['expiration', String(now + REQUEST_TTL)],
+      ],
       content: nip44.encrypt(JSON.stringify({ method, params }), key),
     },
     conn.secret,
@@ -71,7 +75,9 @@ export function readResponse(conn: Conn, requestId: string, method: string, raw:
   if (ev.pubkey !== conn.walletPk) throw new Error('response: not signed by the wallet service')
   if (tagValue(ev, 'p') !== conn.clientPk) throw new Error('response: not addressed to this connection')
   if (tagValue(ev, 'e') !== requestId) throw new Error('response: answers a different request')
-  const body: unknown = JSON.parse(nip44.decrypt(ev.content, nip44.utils.getConversationKey(conn.secret, conn.walletPk)))
+  const body: unknown = JSON.parse(
+    nip44.decrypt(ev.content, nip44.utils.getConversationKey(conn.secret, conn.walletPk)),
+  )
   if (typeof body !== 'object' || body === null) throw new Error('response: body is not an object')
   const b = body as Record<string, unknown>
   if (b.result_type !== method) throw new Error('response: result_type does not match the method called')

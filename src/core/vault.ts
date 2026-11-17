@@ -49,6 +49,10 @@ export async function seal(secrets: Secrets, pin: string, iterations = ITERATION
 /** Throws on a wrong PIN or a modified blob: GCM authenticates both. */
 export async function open(blob: Blob, pin: string, iterations = ITERATIONS): Promise<Secrets> {
   const key = await deriveKey(pin, unb64(blob.salt), iterations)
-  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(blob.iv) as BufferSource }, key, unb64(blob.ct) as BufferSource)
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: unb64(blob.iv) as BufferSource },
+    key,
+    unb64(blob.ct) as BufferSource,
+  )
   return JSON.parse(new TextDecoder().decode(plain)) as Secrets
 }
