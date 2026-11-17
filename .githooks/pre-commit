@@ -1,0 +1,12 @@
+#!/bin/sh
+# Runs before every commit. Fast checks only: nothing here needs the regtest
+# stack. The integration and browser tests (pnpm test:it, pnpm test:e2e) are
+# run by hand before a push.
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Skip for one commit:     git commit --no-verify
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+# format check, type check, unit tests
+pnpm --silent verify

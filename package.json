@@ -13,7 +13,10 @@
     "test": "vitest run test/unit",
     "test:it": "vitest run test/it",
     "test:e2e": "playwright test --trace off",
+    "demo:fresh": "node scripts/fresh-thread.mjs",
     "check": "tsc",
+    "verify": "pnpm format:check && pnpm check && pnpm test",
+    "verify:all": "pnpm verify && pnpm test:it && pnpm test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
