@@ -1,0 +1,298 @@
+/* System fonts and no images, like the app itself. */
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f5;
+  --card: #ffffff;
+  --ink: #15191c;
+  --soft: #55606a;
+  --line: #d5dad6;
+  --accent: #0a7d4b;
+  --accent-text: #0a7d4b;
+  --bezel: #1b1f23;
+  --code: #eef1ee;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111416;
+    --card: #1a1e21;
+    --ink: #eef1f0;
+    --soft: #a9b3bb;
+    --line: #333a40;
+    --accent-text: #5fd39b;
+    --bezel: #000000;
+    --code: #23282c;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+}
+.top,
+main,
+footer {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-top: 28px;
+}
+h1 {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.tagline {
+  margin: 4px 0 0;
+  font-size: 18px;
+  color: var(--accent-text);
+  font-weight: 600;
+}
+a {
+  color: var(--accent-text);
+}
+.repo {
+  font-weight: 600;
+  padding: 12px 0;
+}
+.lede {
+  font-size: 18px;
+  max-width: 62ch;
+  margin: 20px 0 24px;
+}
+h2 {
+  font-size: 22px;
+  line-height: 1.25;
+  margin: 0 0 8px;
+}
+h3 {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+  margin: 12px 0 4px;
+}
+section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  margin: 0 0 20px;
+}
+section p {
+  max-width: 68ch;
+}
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+li {
+  margin: 6px 0;
+}
+
+/* ---- the two phones ---- */
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 16px;
+}
+.caption {
+  flex: 1 1 380px;
+  min-height: 84px;
+}
+#step {
+  margin: 0 0 2px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+#text {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+button {
+  font: inherit;
+  font-weight: 600;
+  min-height: 48px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+button.quiet {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--accent-text);
+  outline-offset: 2px;
+}
+.tabs {
+  display: none;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tabs button {
+  flex: 1;
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+.tabs button[aria-selected='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+#phones {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+figure {
+  margin: 0;
+  flex: 0 1 380px;
+  min-width: 0;
+}
+figcaption {
+  text-align: center;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.phone {
+  background: var(--bezel);
+  border-radius: 30px;
+  padding: 10px;
+}
+iframe {
+  display: block;
+  width: 100%;
+  height: 640px;
+  border: 0;
+  border-radius: 21px;
+  background: #fff;
+}
+.tip {
+  margin: 16px auto 0;
+  color: var(--soft);
+  font-size: 15px;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .tabs {
+    display: flex;
+  }
+  figcaption {
+    display: none;
+  }
+  /* Both phones keep running; only one is on screen. */
+  #phones[data-show='seller'] #fig-buyer,
+  #phones[data-show='buyer'] #fig-seller {
+    position: absolute;
+    left: -9999px;
+    width: 360px;
+    visibility: hidden;
+  }
+  iframe {
+    height: 600px;
+  }
+  section {
+    padding: 16px;
+  }
+  .actions {
+    width: 100%;
+  }
+  .actions button {
+    flex: 1;
+  }
+}
+
+/* ---- the rest ---- */
+.cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0 32px;
+  margin-bottom: 12px;
+}
+.count {
+  font-weight: 600;
+}
+.table-wrap {
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+th,
+td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+th {
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  color: var(--soft);
+  font-weight: 600;
+}
+td:last-child {
+  font-family: ui-monospace, monospace;
+  color: var(--soft);
+}
+pre {
+  background: var(--code);
+  border-radius: 10px;
+  padding: 14px;
+  overflow-x: auto;
+  font-size: 14px;
+}
+code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.92em;
+}
+footer {
+  color: var(--soft);
+  font-size: 14px;
+  padding-bottom: 32px;
+}

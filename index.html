@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      name="description"
+      content="Tab: chat with one person and settle up in the same thread over Lightning. A live two-phone demo that needs no account, wallet or install."
+    />
+    <title>Tab: live demo</title>
+    <link rel="stylesheet" href="./demo.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Tab</h1>
+        <p class="tagline">Chat, charge, and check: paid means proven.</p>
+      </div>
+      <a class="repo" href="https://github.com/saintparish4/tab">Code and docs on GitHub</a>
+    </header>
+
+    <main>
+      <p class="lede">
+        A seller and a buyer chat, the seller asks for payment in the thread, the buyer pays from the thread, and each
+        phone shows “paid” only when it has checked the proof itself. Below are both phones, running now in your
+        browser. Nothing to install and nothing to sign in to.
+      </p>
+
+      <section class="stage" aria-label="Live demo">
+        <div class="bar">
+          <div class="caption" aria-live="polite">
+            <p id="step">Ready</p>
+            <p id="text">Press Play to watch one order from start to finish, or use the two phones yourself.</p>
+          </div>
+          <div class="actions">
+            <button id="play" type="button">Play the demo</button>
+            <button id="reset" type="button" class="quiet">Start over</button>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Which phone to show">
+          <button id="tab-seller" type="button" role="tab" aria-selected="true" aria-controls="fig-seller">
+            Seller’s phone
+          </button>
+          <button id="tab-buyer" type="button" role="tab" aria-selected="false" aria-controls="fig-buyer">
+            Buyer’s phone
+          </button>
+        </div>
+
+        <div id="phones" data-show="seller">
+          <figure id="fig-seller">
+            <figcaption>Seller’s phone</figcaption>
+            <div class="phone"><iframe id="seller" title="Seller’s phone"></iframe></div>
+          </figure>
+          <figure id="fig-buyer">
+            <figcaption>Buyer’s phone</figcaption>
+            <div class="phone"><iframe id="buyer" title="Buyer’s phone"></iframe></div>
+          </figure>
+        </div>
+        <p class="tip">
+          To try it by hand: type any PIN of six or more characters on each phone and press Start. Then send a message,
+          or ask for 250 sats from the seller’s phone and pay it from the buyer’s.
+        </p>
+      </section>
+
+      <section class="note" aria-labelledby="real-h">
+        <h2 id="real-h">What is real here, and what is simulated</h2>
+        <div class="cols">
+          <div>
+            <h3>Real</h3>
+            <ul>
+              <li>Each phone is the same Tab build that the repository produces, unchanged.</li>
+              <li>Messages are signed, end-to-end encrypted and checked on arrival (NIP-17, NIP-44).</li>
+              <li>Each phone talks to its wallet with real Nostr Wallet Connect requests (NIP-47).</li>
+              <li>
+                “Paid” still needs proof: a preimage that hashes to the invoice, and the seller’s own wallet saying the
+                invoice settled.
+              </li>
+              <li>The buyer’s 10,000 sat daily limit is enforced by the wallet, not by the app.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Simulated, inside this page</h3>
+            <ul>
+              <li>The relay. It lives in this browser tab, so the two phones cannot be on different devices.</li>
+              <li>The two Lightning wallets, and the payment between them. No Lightning node is involved.</li>
+              <li>The money. No bitcoin exists here, not even test coins.</li>
+              <li>The keys and wallet links. The page makes new ones on every visit and fills them in for you.</li>
+            </ul>
+          </div>
+        </div>
+        <p>
+          The version with real Lightning payments runs on a private test network (regtest) with Bitcoin Core, two LND
+          nodes and two Alby Hub wallets. It starts with one command from the repository, and the project’s tests run
+          against it.
+        </p>
+      </section>
+
+      <section class="relay" aria-labelledby="relay-h">
+        <h2 id="relay-h">What the relay in the middle sees</h2>
+        <p>
+          Every event the simulated relay has accepted so far, newest first. It can see who a message is for and when
+          it was sent. It cannot read any of them.
+        </p>
+        <p id="relay-count" class="count">Nothing yet.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">What</th>
+                <th scope="col">To</th>
+                <th scope="col">Content as stored</th>
+              </tr>
+            </thead>
+            <tbody id="relay-log"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="run" aria-labelledby="run-h">
+        <h2 id="run-h">Run the real thing</h2>
+        <p>Needs Linux or WSL 2, Node 24, pnpm and Docker.</p>
+        <pre><code>git clone https://github.com/saintparish4/tab &amp;&amp; cd tab
+pnpm install
+mkdir -p .stack &amp;&amp; docker compose up --build -d</code></pre>
+        <p>
+          Then open <code>http://localhost:8080/?demo=merchant</code> and
+          <code>http://localhost:8080/?demo=customer</code> in two windows. The
+          <a href="https://github.com/saintparish4/tab#run-it">README</a> has the rest, including the tests and the
+          <a href="https://github.com/saintparish4/tab/blob/main/docs/threat-model.md">threat model</a>.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Built for the Dakar Bitcoin Hack by BTrust, November 2026. Regtest only, not audited. Do not connect a wallet
+        that holds real funds.
+      </p>
+    </footer>
+    <script src="./demo.js"></script>
+  </body>
+</html>
